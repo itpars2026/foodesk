@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { KeyRound, Save, UserRound } from 'lucide-react'
+import { ChevronDown, KeyRound, Save, UserRound } from 'lucide-react'
 
 import {
   changePassword,
@@ -78,6 +78,7 @@ export default function ProfilePage() {
   const [passwordBusy, setPasswordBusy] = useState(false)
   const [passwordError, setPasswordError] = useState('')
   const [passwordSuccess, setPasswordSuccess] = useState('')
+  const [expandedSection, setExpandedSection] = useState<'details' | 'password' | null>(null)
 
   useEffect(() => {
     let active = true
@@ -202,146 +203,172 @@ export default function ProfilePage() {
   }
 
   return (
-    <section className="mx-auto flex w-full max-w-[800px] flex-col gap-6 lg:gap-3" aria-labelledby="profile-title">
-      <div className="flex items-center gap-3">
+    <section className="mx-auto flex w-full max-w-[800px] flex-col gap-4" aria-labelledby="profile-title">
+      <header className="mb-2 flex items-center gap-3">
         <div className="flex size-12 items-center justify-center rounded-xl bg-accent-soft text-accent">
           <UserRound aria-hidden="true" size={24} />
         </div>
         <div>
-          <h1 id="profile-title" className="m-0 text-2xl font-bold text-ink">
-            پروفایل
-          </h1>
-          <p className="mt-1 text-sm text-muted">
-            اطلاعات و تنظیمات حساب کاربری
-          </p>
+          <h1 id="profile-title" className="m-0 text-2xl font-bold text-ink">پروفایل</h1>
+          <p className="mt-1 text-sm text-muted">اطلاعات و تنظیمات حساب کاربری</p>
         </div>
-      </div>
+      </header>
 
-      <form
-        onSubmit={(event) => void savePreferences(event)}
-        className="rounded-xl border border-line bg-surface p-6 max-[680px]:p-4 lg:p-4"
-      >
-        <h2 className="mb-5 text-lg font-bold text-ink lg:mb-3">اطلاعات پروفایل</h2>
-
-        <div className="mb-5 flex flex-col gap-2 lg:mb-3">
-          <label htmlFor="personnel-number" className="text-sm font-semibold text-ink">
-            کد پرسنلی
-          </label>
-          <input
-            id="personnel-number"
-            value={profile.personnel_number}
-            readOnly
-            className="min-h-12 lg:min-h-10 rounded-lg border border-line bg-raised px-3 text-sm text-muted"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 max-[680px]:grid-cols-1 lg:gap-3">
-          <ProfileSelect
-            id="profile-building"
-            label="شماره ساختمان"
-            value={building}
-            currentNumber={profile.building_number}
-            options={options.buildings}
-            disabled={saving}
-            onChange={(value) => {
-              setBuilding(value)
-              setSaveError('')
-              setSaveSuccess('')
-            }}
-          />
-          <ProfileSelect
-            id="profile-department"
-            label="شماره دپارتمان"
-            value={department}
-            currentNumber={profile.department_number}
-            options={options.departments}
-            disabled={saving}
-            onChange={(value) => {
-              setDepartment(value)
-              setSaveError('')
-              setSaveSuccess('')
-            }}
-          />
-        </div>
-
-        {saveError && (
-          <p role="alert" className="mt-4 text-sm text-negative">{saveError}</p>
-        )}
-        {saveSuccess && (
-          <p role="status" className="mt-4 text-sm text-positive">{saveSuccess}</p>
-        )}
-
-        <div className="mt-6 flex justify-end lg:mt-3">
+      <article className="overflow-hidden rounded-xl border border-line bg-surface">
+        <h2 className="m-0">
           <button
-            type="submit"
-            disabled={saving || (!buildingChanged && !departmentChanged)}
-            className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-accent px-5 text-sm font-semibold text-[var(--accent-contrast)] disabled:cursor-not-allowed disabled:opacity-50"
+            type="button"
+            id="profile-details-trigger"
+            aria-expanded={expandedSection === 'details'}
+            aria-controls="profile-details-panel"
+            onClick={() => setExpandedSection((section) => section === 'details' ? null : 'details')}
+            className="flex min-h-14 w-full cursor-pointer items-center justify-between gap-3 bg-accent-soft px-4 py-3 text-right text-accent transition-colors hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-accent dark:hover:brightness-110 sm:px-5"
           >
-            <Save aria-hidden="true" size={17} />
-            {saving ? 'در حال ذخیره…' : 'ذخیره تغییرات'}
+            <span className="flex items-center gap-2 text-sm font-bold sm:text-base">
+              <ChevronDown aria-hidden="true" size={18} className={`transition-transform duration-200 motion-reduce:transition-none ${expandedSection === 'details' ? '' : '-rotate-90'}`} />
+              اطلاعات پروفایل
+            </span>
           </button>
-        </div>
-      </form>
-
-      <form
-        onSubmit={(event) => void savePassword(event)}
-        className="rounded-xl border border-line bg-surface p-6 max-[680px]:p-4 lg:p-4"
-      >
-        <div className="mb-5 flex items-center gap-2 lg:mb-3">
-          <KeyRound aria-hidden="true" className="text-accent" size={20} />
-          <h2 className="m-0 text-lg font-bold text-ink">تغییر رمز عبور</h2>
-        </div>
-
-        <div className="flex flex-col gap-4 lg:gap-2">
-          {[
-            { id: 'current-password', label: 'رمز فعلی', value: oldPassword, setter: setOldPassword, complete: 'current-password' },
-            { id: 'new-profile-password', label: 'رمز جدید', value: newPassword, setter: setNewPassword, complete: 'new-password' },
-            { id: 'confirm-profile-password', label: 'تکرار رمز جدید', value: confirmPassword, setter: setConfirmPassword, complete: 'new-password' },
-          ].map((field) => (
-            <div key={field.id} className="flex flex-col gap-2">
-              <label htmlFor={field.id} className="text-sm font-semibold text-ink">
-                {field.label}
+        </h2>
+        {expandedSection === 'details' && (
+          <div id="profile-details-panel" role="region" aria-labelledby="profile-details-trigger" className="bg-raised/50 p-3 sm:p-4">
+            <form onSubmit={(event) => void savePreferences(event)} className="rounded-lg border border-line bg-surface p-4 sm:p-5">
+            <div className="mb-5 flex flex-col gap-2 lg:mb-3">
+              <label htmlFor="personnel-number" className="text-sm font-semibold text-ink">
+                کد پرسنلی
               </label>
               <input
-                id={field.id}
-                type="password"
-                autoComplete={field.complete}
-                required
-                value={field.value}
-                disabled={passwordBusy}
-                onChange={(event) => {
-                  field.setter(event.target.value)
-                  setPasswordError('')
-                  setPasswordSuccess('')
-                }}
-                className="min-h-12 lg:min-h-10 rounded-lg border border-line bg-surface px-3 text-sm text-ink outline-offset-2 focus-visible:outline-2 focus-visible:outline-accent"
+                id="personnel-number"
+                value={profile.personnel_number}
+                readOnly
+                className="min-h-12 lg:min-h-10 rounded-lg border border-line bg-raised px-3 text-sm text-muted"
               />
             </div>
-          ))}
-        </div>
 
-        <p className="mt-4 text-xs leading-7 text-muted lg:mt-2">
-          رمز جدید باید شرایط امنیتی سامانه را داشته باشد و با کد پرسنلی یکسان نباشد.
-        </p>
+            <div className="grid grid-cols-2 gap-4 max-[680px]:grid-cols-1 lg:gap-3">
+              <ProfileSelect
+                id="profile-building"
+                label="شماره ساختمان"
+                value={building}
+                currentNumber={profile.building_number}
+                options={options.buildings}
+                disabled={saving}
+                onChange={(value) => {
+                  setBuilding(value)
+                  setSaveError('')
+                  setSaveSuccess('')
+                }}
+              />
+              <ProfileSelect
+                id="profile-department"
+                label="شماره دپارتمان"
+                value={department}
+                currentNumber={profile.department_number}
+                options={options.departments}
+                disabled={saving}
+                onChange={(value) => {
+                  setDepartment(value)
+                  setSaveError('')
+                  setSaveSuccess('')
+                }}
+              />
+            </div>
 
-        {passwordError && (
-          <p role="alert" className="mt-3 text-sm text-negative">{passwordError}</p>
+            {saveError && (
+              <p role="alert" className="mt-4 text-sm text-negative">{saveError}</p>
+            )}
+            {saveSuccess && (
+              <p role="status" className="mt-4 text-sm text-positive">{saveSuccess}</p>
+            )}
+
+            <div className="mt-6 flex justify-end lg:mt-3">
+              <button
+                type="submit"
+                disabled={saving || (!buildingChanged && !departmentChanged)}
+                className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-accent px-5 text-sm font-semibold text-[var(--accent-contrast)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Save aria-hidden="true" size={17} />
+                {saving ? 'در حال ذخیره…' : 'ذخیره تغییرات'}
+              </button>
+            </div>
+            </form>
+          </div>
         )}
-        {passwordSuccess && (
-          <p role="status" className="mt-3 text-sm text-positive">{passwordSuccess}</p>
-        )}
+      </article>
 
-        <div className="mt-5 flex justify-end lg:mt-3">
+      <article className="overflow-hidden rounded-xl border border-line bg-surface">
+        <h2 className="m-0">
           <button
-            type="submit"
-            disabled={passwordBusy}
-            className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-accent px-5 text-sm font-semibold text-[var(--accent-contrast)] disabled:cursor-not-allowed disabled:opacity-50"
+            type="button"
+            id="profile-password-trigger"
+            aria-expanded={expandedSection === 'password'}
+            aria-controls="profile-password-panel"
+            onClick={() => setExpandedSection((section) => section === 'password' ? null : 'password')}
+            className="flex min-h-14 w-full cursor-pointer items-center justify-between gap-3 bg-accent-soft px-4 py-3 text-right text-accent transition-colors hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-accent dark:hover:brightness-110 sm:px-5"
           >
-            <KeyRound aria-hidden="true" size={17} />
-            {passwordBusy ? 'در حال تغییر…' : 'تغییر رمز عبور'}
+            <span className="flex items-center gap-2 text-sm font-bold sm:text-base">
+              <ChevronDown aria-hidden="true" size={18} className={`transition-transform duration-200 motion-reduce:transition-none ${expandedSection === 'password' ? '' : '-rotate-90'}`} />
+              <KeyRound aria-hidden="true" size={18} />
+              تغییر رمز عبور
+            </span>
           </button>
-        </div>
-      </form>
+        </h2>
+        {expandedSection === 'password' && (
+          <div id="profile-password-panel" role="region" aria-labelledby="profile-password-trigger" className="bg-raised/50 p-3 sm:p-4">
+            <form onSubmit={(event) => void savePassword(event)} className="rounded-lg border border-line bg-surface p-4 sm:p-5">
+            <div className="flex flex-col gap-4 lg:gap-2">
+              {[
+                { id: 'current-password', label: 'رمز فعلی', value: oldPassword, setter: setOldPassword, complete: 'current-password' },
+                { id: 'new-profile-password', label: 'رمز جدید', value: newPassword, setter: setNewPassword, complete: 'new-password' },
+                { id: 'confirm-profile-password', label: 'تکرار رمز جدید', value: confirmPassword, setter: setConfirmPassword, complete: 'new-password' },
+              ].map((field) => (
+                <div key={field.id} className="flex flex-col gap-2">
+                  <label htmlFor={field.id} className="text-sm font-semibold text-ink">
+                    {field.label}
+                  </label>
+                  <input
+                    id={field.id}
+                    type="password"
+                    autoComplete={field.complete}
+                    required
+                    value={field.value}
+                    disabled={passwordBusy}
+                    onChange={(event) => {
+                      field.setter(event.target.value)
+                      setPasswordError('')
+                      setPasswordSuccess('')
+                    }}
+                    className="min-h-12 lg:min-h-10 rounded-lg border border-line bg-surface px-3 text-sm text-ink outline-offset-2 focus-visible:outline-2 focus-visible:outline-accent"
+                  />
+                </div>
+              ))}
+            </div>
+
+            <p className="mt-4 text-xs leading-7 text-muted lg:mt-2">
+              رمز جدید باید شرایط امنیتی سامانه را داشته باشد و با کد پرسنلی یکسان نباشد.
+            </p>
+
+            {passwordError && (
+              <p role="alert" className="mt-3 text-sm text-negative">{passwordError}</p>
+            )}
+            {passwordSuccess && (
+              <p role="status" className="mt-3 text-sm text-positive">{passwordSuccess}</p>
+            )}
+
+            <div className="mt-5 flex justify-end lg:mt-3">
+              <button
+                type="submit"
+                disabled={passwordBusy}
+                className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-accent px-5 text-sm font-semibold text-[var(--accent-contrast)] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <KeyRound aria-hidden="true" size={17} />
+                {passwordBusy ? 'در حال تغییر…' : 'تغییر رمز عبور'}
+              </button>
+            </div>
+            </form>
+          </div>
+        )}
+      </article>
     </section>
   )
 }
