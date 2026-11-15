@@ -1,24 +1,6 @@
 name: food-reservation
 
 services:
-  frontend:
-    container_name: frontend
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      target: development
-    restart: unless-stopped
-    ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    depends_on:
-      backend:
-        condition: service_healthy
-    networks:
-      - shared_net
-
   db:
     container_name: db
     image: postgres:17-bookworm
@@ -29,10 +11,10 @@ services:
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
     secrets:
       - postgres_password
-    networks:
-      - backend
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
     healthcheck:
       test:
         - CMD-SHELL
@@ -47,36 +29,43 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-      target: development
+      target: production
     restart: unless-stopped
     environment:
-      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings.development}
-      DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
+      DJANGO_SETTINGS_MODULE: config.settings.production
+      DJANGO_DEBUG: "false"
       DJANGO_SECRET_KEY_FILE: /run/secrets/django_secret_key
-
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:?Set DJANGO_ALLOWED_HOSTS}
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:?Set DJANGO_CSRF_TRUSTED_ORIGINS}
       RESERVATION_CUTOFF_HOUR: ${DOCKER_COMPOSE_RESERVATION_CUTOFF_HOUR:-10}
-
-      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
-      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-http://localhost:8000,http://localhost:5173,http://127.0.0.1:5173}
-
       POSTGRES_DB: ${POSTGRES_DB:-food_reservation}
       POSTGRES_USER: ${POSTGRES_USER:-food_reservation}
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       POSTGRES_HOST: db
-      POSTGRES_PORT: 5432
+      POSTGRES_PORT: "5432"
     secrets:
       - django_secret_key
       - postgres_password
     volumes:
-      - ./backend:/app
       - food_media:/app/media
+      - django_static:/app/staticfiles
     depends_on:
       db:
         condition: service_healthy
+    command:
+      - sh
+      - -c
+      - |
+        python manage.py collectstatic --noinput &&
+        exec gunicorn config.wsgi:application \
+          --bind 0.0.0.0:8000 \
+          --workers 3 \
+          --access-logfile -
+    expose:
+      - "8000"
     networks:
       - backend
-      - shared_net
-    command: python manage.py runserver 0.0.0.0:8000
+      - web
     healthcheck:
       test:
         - CMD
@@ -86,13 +75,40 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 20s
+      start_period: 30s
 
+  frontend:
+    container_name: frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
+    restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "80:80"
+    volumes:
+      - django_static:/srv/django-static:ro
+      - food_media:/srv/media:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - web
+      - shared_net
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -q --spider http://127.0.0.1/healthz
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 volumes:
   postgres_data:
+
+  django_static:
+
   food_media:
     driver: local
     driver_opts:
@@ -109,13 +125,16 @@ networks:
       config:
         - subnet: 172.20.7.0/24
 
+  web:
+    driver: bridge
+
   shared_net:
-    name: shared_net
     external: true
+    name: shared_net
 
 secrets:
   django_secret_key:
     file: ./secrets/django_secret_key.txt
+
   postgres_password:
     file: ./secrets/postgres_password.txt
-
