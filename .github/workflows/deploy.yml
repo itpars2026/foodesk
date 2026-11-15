@@ -4,10 +4,26 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'docker-compose.yml'
+      - 'docker-compose.yaml'
+      - 'compose.yml'
+      - 'compose.yaml'
+      - '.github/workflows/**'
 
   pull_request:
     branches:
       - main
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'docker-compose.yml'
+      - 'docker-compose.yaml'
+      - 'compose.yml'
+      - 'compose.yaml'
+      - '.github/workflows/**'
 
   workflow_dispatch:
 
