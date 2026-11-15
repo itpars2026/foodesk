@@ -56,7 +56,7 @@ async function fillLogin() {
   )
 
   await user.click(
-    screen.getByRole('button', { name: 'ورود' })
+    screen.getByRole('button', { name: 'ورود به حساب' })
   )
 }
 
