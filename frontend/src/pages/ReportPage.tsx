@@ -1,3 +1,4 @@
+import { ChevronDown } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { api, apiClient } from '../api/client'
@@ -39,15 +40,12 @@ export default function ReportPage() {
   const [toDate, setToDate] = useState(today)
   const [buildings, setBuildings] = useState<BuildingReport[]>([])
   const [selectedNumber, setSelectedNumber] = useState<string | null>(null)
+  const [expandedDay, setExpandedDay] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState('')
   const [downloading, setDownloading] = useState(false)
   const requestIdRef = useRef(0)
-
-  const selectedBuilding = buildings.find(
-    (building) => building.building_number === selectedNumber,
-  )
 
   const totalReservations = buildings.reduce(
     (sum, building) => sum + building.reserved_count,
@@ -73,6 +71,7 @@ export default function ReportPage() {
       if (requestId !== requestIdRef.current) return
       setBuildings(response.buildings)
       setSelectedNumber(null)
+      setExpandedDay(null)
       setLoaded(true)
     } catch (loadError) {
       if (requestId === requestIdRef.current) {
@@ -100,6 +99,8 @@ export default function ReportPage() {
       .then((response) => {
         if (!active || requestId !== requestIdRef.current) return
         setBuildings(response.buildings)
+        setSelectedNumber(null)
+        setExpandedDay(null)
         setLoaded(true)
       })
       .catch((loadError: unknown) => {
@@ -238,132 +239,121 @@ export default function ReportPage() {
 
       {loaded && !error && (
         <div className="mt-5">
-          {selectedBuilding ? (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="mb-1 text-sm text-muted">
-                    جزئیات روزانه ساختمان
-                  </p>
-                  <h2 className="m-0 text-2xl font-bold text-ink">
-                    ساختمان {selectedBuilding.building_number}
-                  </h2>
-                </div>
-
-                <button
-                  className={buttonClass('neutral', '')}
-                  onClick={() => setSelectedNumber(null)}
-                  type="button"
-                >
-                  بازگشت به ساختمان‌ها
-                </button>
-              </div>
-
-              <div className="mb-4 rounded-xl border border-line bg-surface p-4">
-                <span className="text-sm text-muted">
-                  مجموع رزروهای فعال در بازه
-                </span>
-                <p className="mb-0 mt-2 text-3xl font-bold text-ink">
-                  {number(selectedBuilding.reserved_count)}
-                </p>
-              </div>
-
-              <div className="grid gap-3">
-                {selectedBuilding.days.map((day) => (
-                  <article
-                    className="rounded-xl border border-line bg-surface p-4"
-                    key={`${day.date}-${day.food}`}
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="mb-2 text-sm font-semibold text-accent">
-                          {formatDate(day.date)}
-                        </p>
-                        <h3 className="m-0 text-lg font-bold text-ink">
-                          {day.food}
-                        </h3>
-                      </div>
-
-                      <div className="rounded-lg bg-raised px-4 py-3 text-center">
-                        <strong className="block text-2xl text-ink">
-                          {number(day.reserved_count)}
-                        </strong>
-                        <span className="text-xs text-muted">
-                          رزرو فعال
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 border-t border-line pt-3 text-sm text-muted">
-                      تعداد پرس غذا:{' '}
-                      <strong className="text-ink">
-                        {number(day.food_quantity)}
-                      </strong>
-                    </div>
-                  </article>
-                ))}
-              </div>
+              <h2 className="m-0 text-xl font-bold text-ink">ساختمان‌ها</h2>
+              <p className="mt-2 text-sm text-muted">
+                برای مشاهده جزئیات روزانه، روی ردیف هر ساختمان کلیک کن.
+              </p>
             </div>
+
+            <div className="rounded-lg border border-line bg-surface px-4 py-3 text-sm text-muted">
+              مجموع رزروها:{' '}
+              <strong className="text-ink">{number(totalReservations)}</strong>
+            </div>
+          </div>
+
+          {buildings.length === 0 ? (
+            <EmptyState
+              title="رزروی برای ساختمان‌ها ثبت نشده"
+              detail="در بازه انتخابی، رزرو فعال دارای شماره ساختمان وجود ندارد."
+            />
           ) : (
-            <div>
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="m-0 text-xl font-bold text-ink">
-                    ساختمان‌ها
-                  </h2>
-                  <p className="mt-2 text-sm text-muted">
-                    برای مشاهده گزارش روزانه، یک ساختمان را انتخاب کن.
-                  </p>
-                </div>
+            <div className="space-y-3">
+              {buildings.map((building) => {
+                const isExpanded = selectedNumber === building.building_number
+                const detailsId = `building-details-${encodeURIComponent(building.building_number)}`
 
-                <div className="rounded-lg border border-line bg-surface px-4 py-3 text-sm text-muted">
-                  مجموع رزروها:{' '}
-                  <strong className="text-ink">
-                    {number(totalReservations)}
-                  </strong>
-                </div>
-              </div>
+                return (
+                  <article
+                    key={building.building_number}
+                    className="overflow-hidden rounded-xl border border-line bg-surface"
+                  >
+                    <h3 className="m-0">
+                      <button
+                        type="button"
+                        aria-expanded={isExpanded}
+                        aria-controls={detailsId}
+                        onClick={() => {
+                          setSelectedNumber(isExpanded ? null : building.building_number)
+                          setExpandedDay(null)
+                        }}
+                        className="flex min-h-14 w-full cursor-pointer items-center justify-between gap-3 bg-accent-soft px-4 py-3 text-right text-accent transition-colors hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-accent dark:hover:brightness-110 sm:px-5"
+                      >
+                        <span className="flex min-w-0 items-center gap-2">
+                          <ChevronDown
+                            aria-hidden="true"
+                            size={17}
+                            className={`shrink-0 transition-transform duration-200 motion-reduce:transition-none ${isExpanded ? '' : '-rotate-90'}`}
+                          />
+                          <span className="font-bold">ساختمان {building.building_number}</span>
+                        </span>
+                        <span className="shrink-0 text-xs font-medium sm:text-sm">
+                          {number(building.reserved_count)} رزرو فعال
+                        </span>
+                      </button>
+                    </h3>
 
-              {buildings.length === 0 ? (
-                <EmptyState
-                  title="رزروی برای ساختمان‌ها ثبت نشده"
-                  detail="در بازه انتخابی، رزرو فعال دارای شماره ساختمان وجود ندارد."
-                />
-              ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {buildings.map((building) => (
-                    <button
-                      aria-label={`مشاهده گزارش ساختمان ${building.building_number}`}
-                      className="group flex min-h-[170px] flex-col justify-between rounded-xl border border-line bg-surface p-5 text-right transition-colors hover:border-accent hover:bg-raised focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                      key={building.building_number}
-                      onClick={() => setSelectedNumber(building.building_number)}
-                      type="button"
-                    >
-                      <div className="flex w-full items-start justify-between gap-3">
-                        <span className="text-lg font-bold text-ink">
-                          ساختمان {building.building_number}
-                        </span>
-                        <span className="rounded-lg bg-raised px-2 py-1 text-xs text-muted">
-                          {number(building.days.length)} روز
-                        </span>
+                    {isExpanded && (
+                      <div id={detailsId} className="space-y-3 bg-raised/50 p-3 sm:p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface px-4 py-3 text-sm">
+                          <span className="text-muted">مجموع رزروهای فعال</span>
+                          <strong className="font-bold text-ink">
+                            {number(building.reserved_count)}
+                          </strong>
+                        </div>
+                        {building.days.length === 0 ? (
+                          <p className="px-2 py-3 text-sm text-muted">
+                            برای این ساختمان جزئیات روزانه‌ای وجود ندارد.
+                          </p>
+                        ) : (
+                          building.days.map((day, index) => {
+                            const dayKey = `${building.building_number}:${day.date}:${day.food}:${index}`
+                            const open = expandedDay === dayKey
+                            const dayDetailsId = `day-${encodeURIComponent(dayKey)}`
+
+                            return (
+                              <section key={dayKey} className="overflow-hidden rounded-lg border border-line bg-surface">
+                                <h4 className="m-0">
+                                  <button
+                                    type="button"
+                                    aria-expanded={open}
+                                    aria-controls={dayDetailsId}
+                                    onClick={() => setExpandedDay(open ? null : dayKey)}
+                                    className="flex min-h-12 w-full cursor-pointer items-center justify-between gap-3 px-4 py-3 text-right transition-colors hover:bg-raised focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-accent"
+                                  >
+                                    <span className="flex min-w-0 items-center gap-2">
+                                      <ChevronDown
+                                        aria-hidden="true"
+                                        size={15}
+                                        className={`shrink-0 text-accent transition-transform duration-200 motion-reduce:transition-none ${open ? '' : '-rotate-90'}`}
+                                      />
+                                      <span className="text-sm font-semibold text-ink">{formatDate(day.date)}</span>
+                                    </span>
+                                    <span className="min-w-0 truncate text-xs text-muted sm:text-sm">{day.food}</span>
+                                  </button>
+                                </h4>
+                                {open && (
+                                  <div id={dayDetailsId} className="grid gap-3 border-t border-line px-4 py-4 text-sm sm:grid-cols-2">
+                                    <div className="flex items-center justify-between gap-2 rounded-lg bg-raised px-3 py-2">
+                                      <span className="text-muted">رزرو فعال</span>
+                                      <strong className="text-ink">{number(day.reserved_count)}</strong>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-2 rounded-lg bg-raised px-3 py-2">
+                                      <span className="text-muted">تعداد پرس غذا</span>
+                                      <strong className="text-ink">{number(day.food_quantity)}</strong>
+                                    </div>
+                                  </div>
+                                )}
+                              </section>
+                            )
+                          })
+                        )}
                       </div>
-
-                      <div className="mt-5 w-full">
-                        <strong className="block text-3xl text-ink">
-                          {number(building.reserved_count)}
-                        </strong>
-                        <span className="mt-1 block text-sm text-muted">
-                          رزرو فعال در این بازه
-                        </span>
-                      </div>
-
-                      <span className="mt-4 text-sm font-semibold text-accent">
-                        مشاهده جزئیات
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
+                    )}
+                  </article>
+                )
+              })}
             </div>
           )}
         </div>

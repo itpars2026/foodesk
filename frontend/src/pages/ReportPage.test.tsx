@@ -53,81 +53,86 @@ function mockBuildings(
 }
 
 describe('Building-based daily report', () => {
-  it('shows building cards and total active reservations', async () => {
+  it('shows collapsed building accordions and total active reservations', async () => {
     mockBuildings()
     render(<ReportPage />)
 
-    expect(
-      await screen.findByRole('button', {
-        name: 'مشاهده گزارش ساختمان 01',
-      }),
-    ).toBeInTheDocument()
+    const first = await screen.findByRole('button', { name: /ساختمان 01/ })
+    const second = screen.getByRole('button', { name: /ساختمان 02/ })
 
-    expect(
-      screen.getByRole('button', {
-        name: 'مشاهده گزارش ساختمان 02',
-      }),
-    ).toBeInTheDocument()
-
+    expect(first).toHaveAttribute('aria-expanded', 'false')
+    expect(second).toHaveAttribute('aria-expanded', 'false')
     expect(screen.getByText('مجموع رزروها:').parentElement)
       .toHaveTextContent('۴')
+    expect(screen.queryByText('قورمه سبزی')).not.toBeInTheDocument()
   })
 
-  it('opens the selected building and displays daily food counts', async () => {
+  it('opens a building and its days to show reservation and food quantities', async () => {
     const user = userEvent.setup()
     mockBuildings()
     render(<ReportPage />)
 
-    await user.click(
-      await screen.findByRole('button', {
-        name: 'مشاهده گزارش ساختمان 01',
-      }),
-    )
+    const building = await screen.findByRole('button', { name: /ساختمان 01/ })
+    await user.click(building)
 
-    expect(
-      screen.getByRole('heading', { name: 'ساختمان 01' }),
-    ).toBeInTheDocument()
-
+    expect(building).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByText('قورمه سبزی')).toBeInTheDocument()
     expect(screen.getByText('زرشک پلو')).toBeInTheDocument()
-    expect(screen.getByText(formatDate('2026-12-01')))
-      .toBeInTheDocument()
-    expect(screen.getByText(formatDate('2026-12-02')))
-      .toBeInTheDocument()
 
-    const dayCards = screen.getAllByRole('article')
+    const firstDay = screen.getByRole('button', {
+      name: new RegExp(formatDate('2026-12-01')),
+    })
+    const secondDay = screen.getByRole('button', {
+      name: new RegExp(formatDate('2026-12-02')),
+    })
+    expect(firstDay).toHaveAttribute('aria-expanded', 'false')
+    await user.click(firstDay)
+    expect(firstDay).toHaveAttribute('aria-expanded', 'true')
 
-    expect(dayCards).toHaveLength(2)
-    expect(within(dayCards[0]).getByText('۲')).toBeInTheDocument()
-    expect(within(dayCards[0]).getByText('۴')).toBeInTheDocument()
-    expect(within(dayCards[1]).getAllByText('۱')).toHaveLength(2)
+    const dayPanel = document.getElementById(firstDay.getAttribute('aria-controls')!)
+    expect(dayPanel).not.toBeNull()
+    expect(within(dayPanel!).getByText('رزرو فعال').parentElement)
+      .toHaveTextContent('۲')
+    expect(within(dayPanel!).getByText('تعداد پرس غذا').parentElement)
+      .toHaveTextContent('۴')
+
+    await user.click(secondDay)
+    expect(firstDay).toHaveAttribute('aria-expanded', 'false')
+    expect(secondDay).toHaveAttribute('aria-expanded', 'true')
+
+    await user.click(secondDay)
+    expect(secondDay).toHaveAttribute('aria-expanded', 'false')
   })
 
-  it('returns from daily details to building cards', async () => {
+  it('collapses a building and switches to another without keeping old day details', async () => {
     const user = userEvent.setup()
     mockBuildings()
     render(<ReportPage />)
 
-    await user.click(
-      await screen.findByRole('button', {
-        name: 'مشاهده گزارش ساختمان 02',
-      }),
-    )
+    const first = await screen.findByRole('button', { name: /ساختمان 01/ })
+    const second = screen.getByRole('button', { name: /ساختمان 02/ })
 
+    await user.click(first)
+    await user.click(screen.getByRole('button', {
+      name: new RegExp(formatDate('2026-12-01')),
+    }))
+    expect(first).toHaveAttribute('aria-expanded', 'true')
+
+    await user.click(second)
+    expect(first).toHaveAttribute('aria-expanded', 'false')
+    expect(second).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.queryByText('قورمه سبزی')).not.toBeInTheDocument()
     expect(screen.getByText('عدس پلو')).toBeInTheDocument()
 
-    await user.click(
-      screen.getByRole('button', {
-        name: 'بازگشت به ساختمان‌ها',
-      }),
-    )
-
-    expect(
-      screen.getByRole('button', {
-        name: 'مشاهده گزارش ساختمان 01',
-      }),
-    ).toBeInTheDocument()
+    await user.click(second)
+    expect(second).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByText('عدس پلو')).not.toBeInTheDocument()
+
+    await user.click(first)
+    const firstDay = screen.getByRole('button', {
+      name: new RegExp(formatDate('2026-12-01')),
+    })
+    expect(firstDay).toHaveAttribute('aria-expanded', 'false')
   })
 
   it('clears the selected building after fetching a new date range', async () => {
@@ -161,7 +166,7 @@ describe('Building-based daily report', () => {
 
     await user.click(
       await screen.findByRole('button', {
-        name: 'مشاهده گزارش ساختمان 01',
+        name: /ساختمان 01/,
       }),
     )
 
@@ -171,13 +176,15 @@ describe('Building-based daily report', () => {
 
     expect(
       await screen.findByRole('button', {
-        name: 'مشاهده گزارش ساختمان 03',
+        name: /ساختمان 03/,
       }),
     ).toBeInTheDocument()
 
     expect(
-      screen.queryByRole('heading', { name: 'ساختمان 01' }),
+      screen.queryByRole('button', { name: /ساختمان 01/ }),
     ).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /ساختمان 03/ }))
+      .toHaveAttribute('aria-expanded', 'false')
 
     await waitFor(() => {
       expect(requestCount).toBeGreaterThanOrEqual(2)
@@ -194,7 +201,7 @@ describe('Building-based daily report', () => {
 
     expect(
       screen.queryByRole('button', {
-        name: /مشاهده گزارش ساختمان/,
+        name: /ساختمان \d+/,
       }),
     ).not.toBeInTheDocument()
   })
@@ -217,7 +224,7 @@ describe('Building-based daily report', () => {
 
     expect(
       screen.queryByRole('button', {
-        name: /مشاهده گزارش ساختمان/,
+        name: /ساختمان \d+/,
       }),
     ).not.toBeInTheDocument()
   })
@@ -273,13 +280,13 @@ describe('Building-based daily report', () => {
 
     expect(
       await screen.findByRole('button', {
-        name: 'مشاهده گزارش ساختمان 03',
+        name: /ساختمان 03/,
       }),
     ).toBeInTheDocument()
 
     expect(
       screen.queryByRole('button', {
-        name: 'مشاهده گزارش ساختمان 01',
+        name: /ساختمان 01/,
       }),
     ).not.toBeInTheDocument()
 
@@ -291,13 +298,13 @@ describe('Building-based daily report', () => {
 
     expect(
       screen.getByRole('button', {
-        name: 'مشاهده گزارش ساختمان 03',
+        name: /ساختمان 03/,
       }),
     ).toBeInTheDocument()
 
     expect(
       screen.queryByRole('button', {
-        name: 'مشاهده گزارش ساختمان 01',
+        name: /ساختمان 01/,
       }),
     ).not.toBeInTheDocument()
 
