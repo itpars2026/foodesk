@@ -28,6 +28,7 @@ class EmployeeAPITests(TestCase):
 
     def create_test_employee(self):
         return create_employee(
+            national_id='0012345678',
             personnel_number='001234',
             building_number='07',
             department_number='003',
@@ -40,6 +41,7 @@ class EmployeeAPITests(TestCase):
             reverse('employee-list'),
             {
                 'personnel_number': '001234',
+                'national_id': '0012345678',
                 'building_number': '07',
                 'department_number': '003',
             },
@@ -48,7 +50,8 @@ class EmployeeAPITests(TestCase):
         self.assertEqual(response.status_code, 201, response.content)
 
         employee = CustomUser.objects.get(username='001234')
-        self.assertTrue(employee.check_password('001234'))
+        self.assertTrue(employee.check_password('0012345678'))
+        self.assertFalse(employee.check_password('001234'))
         self.assertTrue(employee.must_change_password)
         self.assertEqual(employee.first_name, '')
         self.assertEqual(employee.last_name, '')
@@ -57,6 +60,8 @@ class EmployeeAPITests(TestCase):
         self.assertEqual(data['personnel_number'], '001234')
         self.assertEqual(data['first_name'], '')
         self.assertEqual(data['last_name'], '')
+        self.assertNotIn('national_id', data)
+        self.assertNotIn('password', data)
 
     def test_hr_food_can_edit_and_deactivate_employee_without_resetting_password(self):
         hr_food = create_hr_food_user()
@@ -79,7 +84,8 @@ class EmployeeAPITests(TestCase):
         self.assertEqual(employee.username, '009876')
         self.assertEqual(employee.profile.building.number, '08')
         self.assertFalse(employee.is_active)
-        self.assertTrue(employee.check_password('001234'))
+        self.assertTrue(employee.check_password('0012345678'))
+        self.assertFalse(employee.check_password('009876'))
 
     def test_employee_cannot_access_employee_management(self):
         employee = self.create_test_employee()
@@ -99,6 +105,7 @@ class EmployeeAPITests(TestCase):
             reverse('employee-list'),
             {
                 'personnel_number': '001234',
+                'national_id': '0012345678',
                 'building_number': '08',
                 'department_number': '004',
             },
@@ -106,3 +113,36 @@ class EmployeeAPITests(TestCase):
 
         self.assertEqual(response.status_code, 400, response.content)
         self.assertIn('personnel_number', response.json())
+
+    def test_create_employee_requires_national_id(self):
+        self.client.force_login(create_hr_food_user())
+
+        response = self.client.post(
+            reverse('employee-list'),
+            {
+                'personnel_number': '001234',
+                'building_number': '07',
+                'department_number': '003',
+            },
+        )
+
+        self.assertEqual(response.status_code, 400, response.content)
+        self.assertIn('national_id', response.json())
+        self.assertFalse(CustomUser.objects.filter(username='001234').exists())
+
+    def test_create_employee_rejects_invalid_national_id(self):
+        self.client.force_login(create_hr_food_user())
+
+        response = self.client.post(
+            reverse('employee-list'),
+            {
+                'personnel_number': '001234',
+                'national_id': '12345',
+                'building_number': '07',
+                'department_number': '003',
+            },
+        )
+
+        self.assertEqual(response.status_code, 400, response.content)
+        self.assertIn('national_id', response.json())
+        self.assertFalse(CustomUser.objects.filter(username='001234').exists())

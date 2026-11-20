@@ -8,6 +8,7 @@ from core.validators import (
     normalize_personnel_number,
     validate_building_number,
     validate_department_number,
+    validate_national_id,
 )
 
 UNSET = object()
@@ -15,15 +16,23 @@ UNSET = object()
 
 @transaction.atomic
 def create_employee(
-    *, personnel_number: str, building_number: str, department_number: str, is_active: bool = True
+    *,
+    personnel_number: str,
+    national_id: str,
+    building_number: str,
+    department_number: str,
+    is_active: bool = True,
 ) -> CustomUser:
+
     personnel_number = normalize_personnel_number(personnel_number)
+    national_id = validate_national_id(national_id)
+
     building = validate_building_number(building_number)
     department = validate_department_number(department_number)
 
     employee = CustomUser(username=personnel_number, is_active=is_active, must_change_password=True)
 
-    employee.set_password(personnel_number)
+    employee.set_password(national_id)
     employee.full_clean()
     employee.save()
 
@@ -35,6 +44,7 @@ def create_employee(
     profile.save()
 
     employee.groups.add(Group.objects.get_or_create(name=EMPLOYEE_ROLE)[0])
+
     return employee
 
 
@@ -49,10 +59,12 @@ def update_employee(
 ) -> CustomUser:
 
     employee = CustomUser.objects.select_for_update().get(pk=employee.pk)
+
     profile = Profile.objects.select_for_update().get(user=employee)
 
     if personnel_number is not UNSET:
         employee.username = normalize_personnel_number(str(personnel_number))
+
     if is_active is not UNSET:
         employee.is_active = bool(is_active)
 
@@ -76,6 +88,7 @@ def update_employee(
     profile.personnel_number = employee.username
     profile.full_clean()
     profile.save()
+
     return employee
 
 

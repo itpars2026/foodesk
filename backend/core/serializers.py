@@ -1,5 +1,4 @@
 from rest_framework import serializers
-from rest_framework.exceptions import AuthenticationFailed
 
 from django.contrib.auth import authenticate
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -48,7 +47,7 @@ class LoginSerializer(serializers.Serializer):
             password=attrs['password'],
         )
         if user is None:
-            raise AuthenticationFailed('Invalid username or password.')
+            raise serializers.ValidationError({'non_field_errors': ['نام کاربری یا رمز عبور اشتباه است.']})
         attrs['user'] = user
         return attrs
 
@@ -96,8 +95,14 @@ class EmployeeSerializer(serializers.ModelSerializer):
 
 class EmployeeCreateSerializer(serializers.Serializer):
     personnel_number = serializers.CharField(max_length=32)
-    building_number = serializers.CharField(max_length=32)
-    department_number = serializers.CharField(max_length=32)
+    national_id = serializers.CharField(
+        min_length=10,
+        max_length=10,
+        write_only=True,
+        trim_whitespace=True,
+    )
+    building_number = serializers.CharField(max_length=5)
+    department_number = serializers.CharField(max_length=3)
     is_active = serializers.BooleanField(default=True)
 
     def create(self, validated_data):

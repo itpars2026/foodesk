@@ -15,6 +15,7 @@ class AuthenticationAPITests(TestCase):
 
     def create_test_employee(self):
         return create_employee(
+            national_id='0012345678',
             personnel_number='001234',
             building_number='07',
             department_number='003',
@@ -24,7 +25,7 @@ class AuthenticationAPITests(TestCase):
         self.create_test_employee()
 
         csrf_client = Client(enforce_csrf_checks=True)
-        payload = {'username': '001234', 'password': '001234'}
+        payload = {'username': '001234', 'password': '0012345678'}
 
         rejected_response = csrf_client.post(
             reverse('auth-login'),
@@ -65,7 +66,7 @@ class AuthenticationAPITests(TestCase):
         response = self.client.post(
             reverse('auth-change-password'),
             {
-                'old_password': '001234',
+                'old_password': '0012345678',
                 'new_password': 'Safer-Meal-Password-2026',
                 'new_password_confirm': 'Safer-Meal-Password-2026',
             },
@@ -76,6 +77,7 @@ class AuthenticationAPITests(TestCase):
         employee.refresh_from_db()
         self.assertFalse(employee.must_change_password)
         self.assertTrue(employee.check_password('Safer-Meal-Password-2026'))
+        self.assertFalse(employee.check_password('0012345678'))
         self.assertEqual(
             self.client.get(reverse('auth-session')).status_code,
             200,
@@ -88,7 +90,7 @@ class AuthenticationAPITests(TestCase):
         response = self.client.post(
             reverse('auth-change-password'),
             {
-                'old_password': '001234',
+                'old_password': '0012345678',
                 'new_password': '001234',
                 'new_password_confirm': '001234',
             },
@@ -96,6 +98,26 @@ class AuthenticationAPITests(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertIn('new_password', response.json())
+
+    def test_new_password_cannot_equal_current_initial_password(self):
+        employee = self.create_test_employee()
+        self.client.force_login(employee)
+
+        response = self.client.post(
+            reverse('auth-change-password'),
+            {
+                'old_password': '0012345678',
+                'new_password': '0012345678',
+                'new_password_confirm': '0012345678',
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('new_password', response.json())
+
+        employee.refresh_from_db()
+        self.assertTrue(employee.must_change_password)
+        self.assertTrue(employee.check_password('0012345678'))
 
     def test_logout_ends_session(self):
         employee = self.create_test_employee()

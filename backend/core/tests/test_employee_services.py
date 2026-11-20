@@ -15,16 +15,18 @@ class EmployeeServiceTests(TestCase):
 
     def create_test_employee(self):
         return create_employee(
+            national_id='0012345678',
             personnel_number='001234',
             building_number='07',
             department_number='003',
         )
 
-    def test_create_employee_uses_personnel_number_for_username_and_password(self):
+    def test_create_employee_uses_personnel_number_and_national_id(self):
         employee = self.create_test_employee()
 
         self.assertEqual(employee.username, '001234')
-        self.assertTrue(employee.check_password('001234'))
+        self.assertTrue(employee.check_password('0012345678'))
+        self.assertFalse(employee.check_password('001234'))
         self.assertTrue(employee.must_change_password)
         self.assertEqual(employee.profile.personnel_number, '001234')
         self.assertEqual(employee.profile.building.number, '07')
@@ -47,7 +49,7 @@ class EmployeeServiceTests(TestCase):
             updated_employee.profile.personnel_number,
             '009876',
         )
-        self.assertTrue(updated_employee.check_password('001234'))
+        self.assertTrue(updated_employee.check_password('0012345678'))
         self.assertFalse(updated_employee.check_password('009876'))
 
     def test_update_employee_can_deactivate_account(self):
@@ -61,8 +63,20 @@ class EmployeeServiceTests(TestCase):
     def test_create_employee_rolls_back_when_required_profile_data_is_empty(self):
         with self.assertRaises(ValidationError):
             create_employee(
+                national_id='0012345678',
                 personnel_number='001234',
                 building_number='',
+                department_number='003',
+            )
+
+        self.assertFalse(CustomUser.objects.filter(username='001234').exists())
+
+    def test_create_employee_rejects_invalid_national_id(self):
+        with self.assertRaises(ValidationError):
+            create_employee(
+                national_id='12345',
+                personnel_number='001234',
+                building_number='07',
                 department_number='003',
             )
 
