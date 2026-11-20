@@ -15,7 +15,16 @@ MAX_BRAND_IMAGE_PIXELS = 4_000_000
 ALLOWED_BRAND_IMAGE_FORMATS = frozenset({'PNG', 'JPEG', 'WEBP'})
 
 
-def validate_reference_number(value: str, *, field_name: str, allow_blank: bool = False) -> str:
+def validate_national_id(value: str) -> str:
+    national_id = str(value).strip()
+
+    if len(national_id) != 10 or not national_id.isascii() or not national_id.isdecimal():
+        raise ValidationError({'national_id': 'National ID must contain exactly 10 digits.'})
+
+    return national_id
+
+
+def validate_reference_number(value: str, *, field_name: str, max_length: int, allow_blank: bool = False) -> str:
     if not isinstance(value, str):
         raise ValidationError({field_name: 'Number must be a string.'})
 
@@ -24,14 +33,14 @@ def validate_reference_number(value: str, *, field_name: str, allow_blank: bool 
     if not number and not allow_blank:
         raise ValidationError({field_name: 'This field is required.'})
 
-    if len(number) > 3:
-        raise ValidationError({field_name: 'Number must be at most 3 characters.'})
+    if len(number) > max_length:
+        raise ValidationError({field_name: f'Number must be at most {max_length} characters.'})
 
     return number
 
 
 def validate_building_number(value: str, *, allow_blank: bool = False) -> Building | None:
-    number = validate_reference_number(value, field_name='building_number', allow_blank=allow_blank)
+    number = validate_reference_number(value, field_name='building_number', max_length=5, allow_blank=allow_blank)
 
     if not number:
         return None
@@ -50,7 +59,7 @@ def validate_building_number(value: str, *, allow_blank: bool = False) -> Buildi
 
 
 def validate_department_number(value: str, *, allow_blank: bool = False) -> Department | None:
-    number = validate_reference_number(value, field_name='department_number', allow_blank=allow_blank)
+    number = validate_reference_number(value, field_name='department_number', max_length=3, allow_blank=allow_blank)
 
     if not number:
         return None

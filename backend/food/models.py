@@ -139,7 +139,7 @@ class ReservationItem(TimestampedModel):
         blank=True,
     )
     building_number_snapshot = models.CharField(
-        max_length=3,
+        max_length=5,
         null=True,
         blank=True,
     )

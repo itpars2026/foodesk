@@ -14,7 +14,7 @@ class CustomUser(AbstractUser):
 
 
 class Building(models.Model):
-    number = models.CharField(max_length=3, unique=True)
+    number = models.CharField(max_length=5, unique=True)
     is_active = models.BooleanField(default=True)
 
     class Meta:
