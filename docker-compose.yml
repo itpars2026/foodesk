@@ -1,5 +1,4 @@
 name: food-reservation
-
 services:
   db:
     container_name: db
@@ -10,20 +9,19 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-food_reservation}
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
     secrets:
-      - postgres_password
+    - postgres_password
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+    - postgres_data:/var/lib/postgresql/data
     networks:
-      - backend
+    - food_db_net
     healthcheck:
       test:
-        - CMD-SHELL
-        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      - CMD-SHELL
+      - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
       interval: 5s
       timeout: 5s
       retries: 10
       start_period: 10s
-
   backend:
     container_name: backend
     build:
@@ -33,8 +31,9 @@ services:
     restart: unless-stopped
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
-      DJANGO_DEBUG: "false"
+      DJANGO_DEBUG: 'false'
       DJANGO_SECRET_KEY_FILE: /run/secrets/django_secret_key
+
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:?Set DJANGO_ALLOWED_HOSTS}
       DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:?Set DJANGO_CSRF_TRUSTED_ORIGINS}
 
@@ -44,17 +43,20 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-food_reservation}
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       POSTGRES_HOST: db
-      POSTGRES_PORT: "5432"
+      POSTGRES_PORT: '5432'
 
     secrets:
-      - django_secret_key
-      - postgres_password
+    - django_secret_key
+    - postgres_password
+
     volumes:
-      - food_media:/app/media
-      - django_static:/app/staticfiles
+    - food_media:/app/media
+    - django_static:/app/staticfiles
+
     depends_on:
       db:
         condition: service_healthy
+
     command:
       - sh
       - -c
@@ -64,21 +66,26 @@ services:
           --bind 0.0.0.0:8000 \
           --workers 3 \
           --access-logfile -
+
     expose:
-      - "8000"
+    - '8000'
+
     networks:
-      - backend
-      - web
+    - food_app_net
+    - food_db_net
+
     healthcheck:
       test:
-        - CMD
-        - python
-        - -c
-        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health', timeout=2)"
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health',
+        timeout=2)
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
+
 
   frontend:
     container_name: frontend
@@ -87,31 +94,33 @@ services:
       dockerfile: Dockerfile
       target: production
     restart: unless-stopped
-    ports:
-      - "80:80"
+
     volumes:
-      - django_static:/srv/django-static:ro
-      - food_media:/srv/media:ro
+    - django_static:/srv/django-static:ro
+    - food_media:/srv/media:ro
+
     depends_on:
       backend:
         condition: service_healthy
+
     networks:
-      - web
-      - shared_net
+      food_app_net: {}
+      shared_net:
+        aliases:
+        - food-frontend
+
     healthcheck:
       test:
-        - CMD-SHELL
-        - wget -q --spider http://127.0.0.1/healthz
+      - CMD-SHELL
+      - wget -q --spider http://127.0.0.1/healthz
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
 
 volumes:
-  postgres_data:
-
-  django_static:
-
+  postgres_data: null
+  django_static: null
   food_media:
     driver: local
     driver_opts:
@@ -120,17 +129,12 @@ volumes:
       device: /opt/food/media
 
 networks:
-  backend:
+  food_app_net:
+    name: food_app_net
     driver: bridge
-    name: food_reservation_internal
-    internal: true
-    ipam:
-      config:
-        - subnet: 172.20.7.0/24
-
-  web:
+  food_db_net:
+    name: food_db_net
     driver: bridge
-
   shared_net:
     external: true
     name: shared_net
@@ -138,6 +142,5 @@ networks:
 secrets:
   django_secret_key:
     file: ./secrets/django_secret_key.txt
-
   postgres_password:
     file: ./secrets/postgres_password.txt

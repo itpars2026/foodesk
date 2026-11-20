@@ -24,7 +24,7 @@ COPY . .
 
 RUN pnpm build
 
-FROM nginx:1.27-alpine AS production
+FROM nginx:1.30.7-alpine AS production
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
