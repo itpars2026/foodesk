@@ -4,6 +4,7 @@ import { changePassword } from '../api/endpoints'
 import type { User } from '../api/types'
 import BrandMark from '../components/layout/BrandMark'
 import { getApiMessage } from '../utils/errors'
+import { isNumericOnlyPassword } from '../utils/password'
 
 export default function PasswordScreen({ onSuccess }: { onSuccess: (session: User) => void }) {
   const [oldPassword, setOldPassword] = useState('')
@@ -14,6 +15,12 @@ export default function PasswordScreen({ onSuccess }: { onSuccess: (session: Use
 
   async function submit(event: FormEvent) {
     event.preventDefault()
+
+    if (isNumericOnlyPassword(newPassword)) {
+      setError('رمز عبور نباید فقط شامل عدد باشد. لطفاً از ترکیب حروف و اعداد استفاده کنید.')
+      return
+    }
+
     setBusy(true)
     setError('')
     try {

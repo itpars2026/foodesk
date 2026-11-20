@@ -12,6 +12,7 @@ import type { Profile, ProfileOption, ProfileOptions } from '../api/types'
 import { api } from '../api/client'
 import type { User } from '../api/types'
 import { getApiMessage } from '../utils/errors'
+import { isNumericOnlyPassword } from '../utils/password'
 
 function ProfileSelect({
   id,
@@ -84,6 +85,7 @@ export default function ProfilePage() {
   const [expandedSection, setExpandedSection] = useState<'details' | 'password' | 'create-employee' | null>(null)
 
   const [employeeNumber, setEmployeeNumber] = useState('')
+  const [employeeNationalId, setEmployeeNationalId] = useState('')
   const [employeeBuilding, setEmployeeBuilding] = useState('')
   const [employeeDepartment, setEmployeeDepartment] = useState('')
   const [employeeBusy, setEmployeeBusy] = useState(false)
@@ -174,6 +176,12 @@ export default function ProfilePage() {
 
     if (passwordBusy) return
 
+    if (isNumericOnlyPassword(newPassword)) {
+      setPasswordError('رمز عبور نباید فقط شامل عدد باشد. لطفاً از ترکیب حروف و اعداد استفاده کنید.')
+      setPasswordSuccess('')
+      return
+    }
+
     if (newPassword !== confirmPassword) {
       setPasswordError('رمز جدید و تکرار آن یکسان نیستند.')
       setPasswordSuccess('')
@@ -203,6 +211,7 @@ export default function ProfilePage() {
     if (employeeBusy || !canCreateEmployee || !options) return
 
     const personnelNumber = employeeNumber.trim()
+    const nationalId = employeeNationalId.trim()
     const selectedBuilding = options.buildings.find(
       (option) => String(option.id) === employeeBuilding,
     )
@@ -216,6 +225,12 @@ export default function ProfilePage() {
       return
     }
 
+    if (!/^[0-9]{10}$/.test(nationalId)) {
+      setEmployeeSuccess('')
+      setEmployeeError('کد ملی باید دقیقاً ۱۰ رقم باشد.')
+      return
+    }
+
     setEmployeeBusy(true)
     setEmployeeError('')
     setEmployeeSuccess('')
@@ -224,12 +239,14 @@ export default function ProfilePage() {
         method: 'POST',
         body: JSON.stringify({
           personnel_number: personnelNumber,
+          national_id: nationalId,
           building_number: selectedBuilding.number,
           department_number: selectedDepartment.number,
           is_active: true,
         }),
       })
       setEmployeeNumber('')
+      setEmployeeNationalId('')
       setEmployeeBuilding('')
       setEmployeeDepartment('')
       setEmployeeSuccess('کاربر جدید با موفقیت ایجاد شد. در اولین ورود باید رمز عبور خود را تغییر دهد.')
@@ -473,6 +490,32 @@ export default function ProfilePage() {
                     className="min-h-12 w-full rounded-lg border border-line bg-surface px-3 text-sm text-ink outline-offset-2 focus-visible:outline-2 focus-visible:outline-accent lg:min-h-10"
                   />
                 </div>
+                <div className="mb-4 flex flex-col gap-2">
+                  <label htmlFor="new-employee-national-id" className="text-sm font-semibold text-ink">
+                    کد ملی
+                  </label>
+                  <input
+                    id="new-employee-national-id"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]{10}"
+                    minLength={10}
+                    maxLength={10}
+                    required
+                    autoComplete="off"
+                    value={employeeNationalId}
+                    disabled={employeeBusy}
+                    onChange={(event) => {
+                      setEmployeeNationalId(event.target.value)
+                      setEmployeeError('')
+                      setEmployeeSuccess('')
+                    }}
+                    className="min-h-12 w-full rounded-lg border border-line bg-surface px-3 text-sm text-ink outline-offset-2 focus-visible:outline-2 focus-visible:outline-accent lg:min-h-10"
+                  />
+                  <p className="text-xs text-muted">
+                    رمز اولیه کاربر برابر کد ملی است.
+                  </p>
+                </div>
                 <div className="grid grid-cols-2 gap-4 max-[680px]:grid-cols-1 lg:gap-3">
                   <div className="flex flex-col gap-2">
                     <label htmlFor="new-employee-building" className="text-sm font-semibold text-ink">شماره ساختمان</label>
@@ -516,14 +559,14 @@ export default function ProfilePage() {
                   </div>
                 </div>
                 <p className="mt-4 text-xs leading-7 text-muted">
-                  حساب کاربر جدید فعال خواهد بود. رمز اولیه برابر کد پرسنلی است و تغییر آن در اولین ورود اجباری است.
+                  حساب کاربر جدید فعال خواهد بود. رمز اولیه برابر کد ملی است و تغییر آن در اولین ورود اجباری است.
                 </p>
                 {employeeError && <p role="alert" className="mt-3 text-sm text-negative">{employeeError}</p>}
                 {employeeSuccess && <p role="status" className="mt-3 text-sm text-positive">{employeeSuccess}</p>}
                 <div className="mt-5 flex justify-end lg:mt-3">
                   <button
                     type="submit"
-                    disabled={employeeBusy || !employeeNumber.trim() || !employeeBuilding || !employeeDepartment}
+                    disabled={employeeBusy || !employeeNumber.trim() || !/^[0-9]{10}$/.test(employeeNationalId.trim()) || !employeeBuilding || !employeeDepartment}
                     className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-accent px-5 text-sm font-semibold text-[var(--accent-contrast)] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <UserRoundPlus aria-hidden="true" size={17} />

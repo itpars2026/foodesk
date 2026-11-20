@@ -49,6 +49,7 @@ async function openCreationForm() {
 async function fillCreationForm() {
   const { user, form } = await openCreationForm()
   await user.type(within(form).getByRole('textbox', { name: 'کد پرسنلی' }), '10245')
+  await user.type(within(form).getByRole('textbox', { name: 'کد ملی' }), '0012345678')
   await user.selectOptions(within(form).getByRole('combobox', { name: 'شماره ساختمان' }), '3')
   await user.selectOptions(within(form).getByRole('combobox', { name: 'شماره دپارتمان' }), '4')
   return { user, form }
@@ -92,9 +93,10 @@ describe('Profile employee creation', () => {
     await user.click(within(form).getByRole('button', { name: 'ایجاد کاربر' }))
     expect(await within(form).findByRole('status')).toHaveTextContent('با موفقیت ایجاد شد')
     expect(bodies).toEqual([{
-      personnel_number: '10245', building_number: '03', department_number: '04', is_active: true,
+      personnel_number: '10245', national_id: '0012345678', building_number: '03', department_number: '04', is_active: true,
     }])
     expect(within(form).getByRole('textbox', { name: 'کد پرسنلی' })).toHaveValue('')
+    expect(within(form).getByRole('textbox', { name: 'کد ملی' })).toHaveValue('')
     expect(within(form).getByRole('combobox', { name: 'شماره ساختمان' })).toHaveValue('')
     expect(within(form).getByRole('combobox', { name: 'شماره دپارتمان' })).toHaveValue('')
   })
