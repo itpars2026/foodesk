@@ -92,6 +92,7 @@ class FoodAPITests(TestCase):
         )
 
         employee = create_employee(
+            national_id='0012345678',
             personnel_number='001234',
             building_number='07',
             department_number='003',

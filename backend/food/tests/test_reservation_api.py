@@ -33,6 +33,7 @@ class ReservationAPITests(TestCase):
 
     def setUp(self):
         self.user = create_employee(
+            national_id='0012345678',
             personnel_number='res-001',
             building_number=self.building.number,
             department_number=self.department.number,
@@ -964,6 +965,7 @@ class ReservationAPITests(TestCase):
         reservation_id = created.json()[0]['id']
 
         other_user = create_employee(
+            national_id='0012345678',
             personnel_number='res-002',
             building_number=self.building.number,
             department_number=self.department.number,
@@ -1016,6 +1018,7 @@ class ReservationAPITests(TestCase):
 
     def test_employee_must_change_initial_password_before_reserving(self):
         employee = create_employee(
+            national_id='0012345678',
             personnel_number='res-003',
             building_number=self.building.number,
             department_number=self.department.number,

@@ -14,6 +14,7 @@ class CustomUserAdmin(UserAdmin, ModelAdmin):
     change_password_form = AdminPasswordChangeForm
 
     fieldsets = (*UserAdmin.fieldsets, ('Initial password', {'fields': ('must_change_password',)}))
+    search_fields = ('username',)
 
 
 @admin.register(Profile)

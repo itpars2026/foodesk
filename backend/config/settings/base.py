@@ -26,6 +26,7 @@ CSRF_TRUSTED_ORIGINS = get_csv('DJANGO_CSRF_TRUSTED_ORIGINS')
 
 INSTALLED_APPS = [
     'unfold',
+    'unfold.contrib.filters',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',

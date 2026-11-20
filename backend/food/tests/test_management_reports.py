@@ -62,6 +62,7 @@ class ManagementReportTests(TestCase):
     def test_viewer_can_read_daily_report_with_current_toman_totals(self):
         viewer = create_user_in_group('viewer-002', VIEWER_ROLE)
         employee = create_employee(
+            national_id='0012345678',
             personnel_number='report-001',
             building_number='07',
             department_number='003',
@@ -131,6 +132,7 @@ class ManagementReportTests(TestCase):
         viewer = create_user_in_group('viewer-multi', VIEWER_ROLE)
 
         employee = create_employee(
+            national_id='0012345678',
             personnel_number='report-multi',
             building_number='07',
             department_number='003',
@@ -237,6 +239,7 @@ class ManagementReportTests(TestCase):
 
         viewer = create_user_in_group('viewer-excel', VIEWER_ROLE)
         employee = create_employee(
+            national_id='0012345678',
             personnel_number='report-excel',
             building_number='07',
             department_number='003',
@@ -353,6 +356,7 @@ class ManagementReportTests(TestCase):
 
         employees = {
             number: create_employee(
+                national_id='0012345678',
                 personnel_number=number,
                 building_number='07',
                 department_number='003',
@@ -544,6 +548,7 @@ class ManagementReportTests(TestCase):
 
         employees = {
             number: create_employee(
+                national_id='0012345678',
                 personnel_number=number,
                 building_number='07',
                 department_number='003',
@@ -712,6 +717,7 @@ class ManagementReportTests(TestCase):
 
     def test_employee_cannot_access_buildings_report(self):
         employee = create_employee(
+            national_id='0012345678',
             personnel_number='buildings-denied',
             building_number='07',
             department_number='003',
@@ -730,6 +736,7 @@ class ManagementReportTests(TestCase):
 
     def test_employee_cannot_access_management_reports(self):
         employee = create_employee(
+            national_id='0012345678',
             personnel_number='report-003',
             building_number='07',
             department_number='003',
