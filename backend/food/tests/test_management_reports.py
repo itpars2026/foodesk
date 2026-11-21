@@ -300,7 +300,7 @@ class ManagementReportTests(TestCase):
                 'شماره دپارتمان',
                 'نام غذا',
                 'تعداد غذا',
-                'قیمت واحد غذا با ظرف (تومان)',
+                'Excel Salad',
             ),
         )
         self.assertEqual(
@@ -312,14 +312,8 @@ class ManagementReportTests(TestCase):
                 '003',
                 'Excel Multi Food',
                 2,
-                1_100_000,
-                'Excel Doogh',
-                3,
-                150_000,
-                'Excel Salad',
                 2,
-                200_000,
-                3_050_000,
+                3,
             ),
         )
 
@@ -509,20 +503,22 @@ class ManagementReportTests(TestCase):
         self.assertEqual(first[3], '003')
         self.assertEqual(first[4], 'Detailed Excel Food')
         self.assertEqual(first[5], 2)
-        self.assertEqual(first[6], 1_100_000)
+        self.assertEqual(first[6:10], (3, 1, 2, 1))
 
         self.assertEqual(
-            first[7:13],
-            ('Drink A', 2, 150_000, 'Drink B', 1, 120_000),
+            headers,
+            (
+                'روز شمسی', 'شماره ساختمان', 'کد پرسنلی', 'شماره دپارتمان',
+                'نام غذا', 'تعداد غذا', 'Side A', 'Side B', 'Drink A', 'Drink B',
+            ),
         )
-        self.assertEqual(
-            first[13:19],
-            ('Side A', 3, 100_000, 'Side B', 1, 200_000),
-        )
-        self.assertEqual(headers[-1], 'قیمت کل (تومان)')
-
-        expected_total = 2 * 1_100_000 + 2 * 150_000 + 1 * 120_000 + 3 * 100_000 + 1 * 200_000
-        self.assertEqual(first[-1], expected_total)
+        self.assertEqual(workbook.sheetnames, ['جزئیات رزرو', 'سفارش', 'تحویل ساختمان‌ها'])
+        # Every defined catalog item has a column, even if not ordered.
+        self.assertEqual(rows[2][6:10], (0, 0, 0, 0))
+        order_rows = list(workbook['سفارش'].values)
+        self.assertEqual(order_rows[1][3:8], (4, 3, 1, 2, 1))
+        delivery_rows = list(workbook['تحویل ساختمان‌ها'].values)
+        self.assertEqual(delivery_rows[0][-4:], ('Side A', 'Side B', 'Drink A', 'Drink B'))
 
         # The identifiers must remain text to preserve leading zeros.
         for column in (2, 3, 4):
@@ -532,9 +528,45 @@ class ManagementReportTests(TestCase):
                 '@',
             )
 
-        # Unused optional columns remain blank.
-        self.assertEqual(rows[2][7:19], (None,) * 12)
 
+        workbook.close()
+
+    def test_excel_delivery_groups_two_character_building_prefix_and_keeps_unordered_catalog(self):
+        from io import BytesIO
+        from openpyxl import load_workbook
+
+        viewer = create_user_in_group('viewer-prefix', VIEWER_ROLE)
+        food = Food.objects.create(name='Prefix Food', price=100_000, container_price=10_000)
+        day = Menu.objects.create(date=date(2099, 5, 1), food=food)
+        Side.objects.create(name='Unused Side', price=25_000)
+        Drink.objects.create(name='Unused Drink', price=15_000)
+
+        for idx, building in enumerate(('2101', '2102', '2301')):
+            employee = create_employee(
+                national_id='0012345678', personnel_number=f'prefix-{idx}',
+                building_number='07', department_number='003',
+            )
+            reservation = Reservation.objects.create(user=employee, menu=day)
+            ReservationItem.objects.create(
+                reservation=reservation, building_number_snapshot=building,
+                food_price=110_000, food_quantity=idx + 1,
+            )
+
+        self.client.force_login(viewer)
+        response = self.client.get(
+            reverse('daily-report-export'), {'from': '2099-05-01', 'to': '2099-05-01'},
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        workbook = load_workbook(BytesIO(response.content))
+        self.assertEqual(workbook.sheetnames, ['جزئیات رزرو', 'سفارش', 'تحویل ساختمان‌ها'])
+        details = list(workbook['جزئیات رزرو'].values)
+        self.assertEqual([row[1] for row in details[1:]], ['2101', '2102', '2301'])
+        self.assertEqual(details[0][-2:], ('Unused Side', 'Unused Drink'))
+        self.assertTrue(all(row[-2:] == (0, 0) for row in details[1:]))
+        delivery = list(workbook['تحویل ساختمان‌ها'].values)
+        self.assertEqual([(row[0], row[4]) for row in delivery[1:]], [('21', 3), ('23', 3)])
+        self.assertEqual([row[-2:] for row in delivery[1:]], [(0, 0), (0, 0)])
+        self.assertEqual(workbook['تحویل ساختمان‌ها'].cell(2, 1).number_format, '@')
         workbook.close()
 
     def test_buildings_report_groups_active_reservations_by_day(self):
