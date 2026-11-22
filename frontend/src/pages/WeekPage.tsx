@@ -225,7 +225,17 @@ export default function WeekPage() {
         </div>
       )}
 
-      {editor && <ReservationDialog drinks={drinks} menu={editor} onClose={() => setEditor(null)} onSaved={load} sides={sides} />}
+      {editor && (
+        <ReservationDialog
+          key={editor.id}
+          menu={editor}
+          dayMenus={menus.filter((item) => item.date === editor.date)}
+          sides={sides}
+          drinks={drinks}
+          onClose={() => setEditor(null)}
+          onSaved={load}
+        />
+      )}
     </section>
   )
 }
@@ -291,12 +301,14 @@ function DayRow({ date, index, menu, onEdit }: { date: string; index: number; me
 
 function ReservationDialog({
   menu,
+  dayMenus,
   sides,
   drinks,
   onClose,
   onSaved,
 }: {
   menu: WeeklyMenu
+  dayMenus: WeeklyMenu[]
   sides: CatalogItem[]
   drinks: CatalogItem[]
   onClose: () => void
@@ -328,6 +340,19 @@ function ReservationDialog({
     ),
   )
   const [foodQuantity, setFoodQuantity] = useState(current?.food_quantity ?? 1)
+
+  const [selectedMenuIds, setSelectedMenuIds] = useState<number[]>(
+    () => menu.reservation ? [] : [menu.id],
+  )
+
+  const selectedMenus = dayMenus.filter(
+    (option) =>
+      selectedMenuIds.includes(option.id) &&
+      option.can_reserve &&
+      !option.reservation,
+  )
+
+  const hasNewSelections = selectedMenus.length > 0
   const [saving, setSaving] = useState(false)
   const [canceling, setCanceling] = useState(false)
   const [error, setError] = useState('')
@@ -461,13 +486,33 @@ function ReservationDialog({
     }
   }, [])
 
-  const total = menu.food_price * foodQuantity
-    + selectionTotal(sides, sideQuantities)
-    + selectionTotal(drinks, drinkQuantities)
+  const foodSubtotal = (
+    hasNewSelections
+      ? selectedMenus.reduce(
+          (sum, option) => sum + option.food_price,
+          0,
+        )
+      : menu.reservation
+        ? menu.food_price
+        : 0
+  ) * foodQuantity
+
+  const selectedCount = hasNewSelections
+    ? selectedMenus.length
+    : menu.reservation ? 1 : 0
+
+  const total = foodSubtotal
+    + selectedCount * selectionTotal(sides, sideQuantities)
+    + selectedCount * selectionTotal(drinks, drinkQuantities)
 
   async function save(event: FormEvent) {
     event.preventDefault()
     setError('')
+
+    if (!hasNewSelections && !menu.reservation) {
+      setError('حداقل یک غذا انتخاب کنید.')
+      return
+    }
 
     if (!building || !Number.isInteger(Number(building))) {
       setError('انتخاب ساختمان محل تحویل الزامی است.')
@@ -503,10 +548,25 @@ function ReservationDialog({
         })),
     }
     try {
-      if (menu.reservation) {
-        await api<Reservation>(`/reservations/${menu.reservation.id}`, { method: 'PATCH', body: JSON.stringify(item) })
-      } else {
-        await api<Reservation[]>('/reservations', { method: 'POST', body: JSON.stringify({ reservations: [{ menu: menu.id, ...item }] }) })
+      if (hasNewSelections) {
+        await api<Reservation[]>('/reservations', {
+          method: 'POST',
+          body: JSON.stringify({
+            reservations: selectedMenus.map((option) => ({
+              ...item,
+              menu: option.id,
+              building: Number(building),
+            })),
+          }),
+        })
+      } else if (menu.reservation) {
+        await api<Reservation>(
+          `/reservations/${menu.reservation.id}`,
+          {
+            method: 'PATCH',
+            body: JSON.stringify(item),
+          },
+        )
       }
       await onSaved()
       setSaved(true)
@@ -614,7 +674,112 @@ function ReservationDialog({
               className="min-w-0"
             >
               {activeCatalogTab === 'food' ? (
-                <div className="space-y-3"><div className="grid min-w-0 grid-cols-2 items-center gap-3">
+                <div className="space-y-3">
+
+                  {/* Dynamic multi-food selection */}
+                  <div
+                    className="grid gap-2"
+                    role="group"
+                    aria-label="انتخاب غذاهای روز"
+                  >
+                    {dayMenus.map((option) => {
+                      const existing = Boolean(option.reservation)
+                      const selected = existing
+                        ? option.reservation?.status === 'res'
+                        : selectedMenuIds.includes(option.id)
+
+                      const disabled =
+                        saving ||
+                        canceling ||
+                        existing ||
+                        !option.can_reserve
+
+                      return (
+                        <label
+                          key={option.id}
+                          className={`flex items-start gap-3 rounded-xl border p-3 ${
+                            selected
+                              ? 'border-[#EF816E] bg-[#FCE8E3] dark:bg-[#EF816E]/20'
+                              : 'border-line bg-surface'
+                          } ${
+                            disabled
+                              ? 'cursor-not-allowed'
+                              : 'cursor-pointer hover:border-[#EF816E]'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selected}
+                            disabled={disabled}
+                            onChange={(event) => {
+                              setSelectedMenuIds((previous) =>
+                                event.target.checked
+                                  ? previous.includes(option.id)
+                                    ? previous
+                                    : [...previous, option.id]
+                                  : previous.filter((id) => id !== option.id),
+                              )
+                            }}
+                            aria-label={`انتخاب ${option.category?.name ?? 'غذا'}: ${option.food_name}`}
+                            className="mt-1 h-4 w-4 shrink-0 accent-[#C95443]"
+                          />
+
+                          <span className="min-w-0 flex-1">
+                            <span className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="text-xs font-semibold text-muted">
+                                {option.category?.name ?? 'غذا'}
+                              </span>
+
+                              {option.reservation?.status === 'res' && (
+                                <span className="text-xs text-positive">
+                                  قبلاً رزرو شده
+                                </span>
+                              )}
+
+                              {option.reservation?.status === 'can' && (
+                                <span className="text-xs text-muted">
+                                  رزرو لغوشده
+                                </span>
+                              )}
+
+                              {!existing && !option.can_reserve && (
+                                <span className="text-xs text-muted">
+                                  غیرقابل رزرو
+                                </span>
+                              )}
+                            </span>
+
+                            <span className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                              <span className="text-sm font-semibold text-ink">
+                                {option.food_name}
+                              </span>
+
+                              <span className="text-xs font-semibold text-ink">
+                                {formatMoney(option.food_price)}
+                              </span>
+                            </span>
+                          </span>
+                        </label>
+                      )
+                    })}
+
+                    <p className="m-0 text-xs text-muted">
+                      {hasNewSelections
+                        ? `${selectedMenus.length} غذای جدید انتخاب شده است.`
+                        : menu.reservation
+                          ? 'رزرو فعلی قابل ویرایش است.'
+                          : 'حداقل یک غذا انتخاب کنید.'}
+                    </p>
+
+                    {menu.reservation && hasNewSelections && (
+                      <p className="m-0 text-xs text-muted">
+                        فقط غذاهای جدید ثبت می‌شوند.
+                        رزرو قبلی تغییری نمی‌کند.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="grid min-w-0 grid-cols-2 items-center gap-3">
             <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
               <span className="text-sm font-semibold text-ink">
                 تعداد غذا
@@ -664,7 +829,10 @@ function ReservationDialog({
               </strong>
             </div>
           </div>
-<p className="m-0 text-sm text-muted">{menu.food_name} — {formatMoney(menu.food_price)} × {foodQuantity}</p></div>
+<p className="m-0 text-sm text-muted">{hasNewSelections
+  ? selectedMenus.map((option) => option.food_name).join('، ')
+  : menu.food_name}
+  — {formatMoney(foodSubtotal)}</p></div>
               ) : activeCatalogTab === 'side' ? (
                 <CatalogMultiSelect
                   label="پیش‌غذا (اختیاری)"
@@ -721,7 +889,15 @@ function ReservationDialog({
   <div className="z-10 shrink-0 space-y-2 border-t border-line bg-surface pt-2">
 <div className="mt-1 flex justify-between gap-[10px] border-t border-line py-[11px] text-sm text-muted"><span>جمع این انتخاب</span><strong className="text-ink">{formatMoney(total)}</strong></div>
           {error && <p className="mb-[15px] rounded-[9px] border border-[#f0c9cb] bg-[#fff4f4] px-[14px] py-3 text-sm leading-[1.7] text-[#8b242a] dark:border-negative/40 dark:bg-raised dark:text-negative" role="alert">{error}</p>}
-          <button className={buttonClass('primary', 'w-full')} disabled={saving || canceling || buildingLoading || Boolean(buildingLoadError)} type="submit">{saving ? 'در حال ثبت…' : menu.reservation?.status === 'can' ? 'ثبت رزرو مجدد' : menu.reservation ? 'ذخیرهٔ ویرایش' : 'ثبت رزرو'}</button>
+          <button className={buttonClass('primary', 'w-full')} disabled={saving || canceling || buildingLoading || Boolean(buildingLoadError)} type="submit">{saving
+  ? 'در حال ثبت…'
+  : hasNewSelections
+    ? selectedMenus.length === 1 ? 'ثبت رزرو' : `ثبت ${selectedMenus.length} غذا`
+    : menu.reservation?.status === 'can'
+      ? 'ثبت رزرو مجدد'
+      : menu.reservation
+        ? 'ذخیرهٔ ویرایش'
+        : 'ثبت رزرو'}</button>
           {menu.reservation?.status === 'res' && <button className={buttonClass('dangerQuiet', '')} disabled={saving || canceling} onClick={() => void cancelReservation()} type="button">{canceling ? 'در حال لغو…' : 'لغو غذای این روز'}</button>}
           <p className="mt-px mb-0 text-center text-[11px] text-muted">مهلت رزرو و ویرایش تا ساعت ۱۰ صبح روز قبل است.</p>
   </div>
