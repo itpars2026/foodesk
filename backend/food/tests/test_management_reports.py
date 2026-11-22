@@ -8,6 +8,7 @@ from core.models import Building, CustomUser, Department
 from core.roles import HR_FOOD_ROLE, VIEWER_ROLE
 from core.services import create_employee
 from food.models import (
+    MenuCategory,
     Drink,
     Food,
     Menu,
@@ -31,6 +32,7 @@ def create_user_in_group(username: str, group_name: str) -> CustomUser:
 class ManagementReportTests(TestCase):
     @classmethod
     def setUpTestData(cls):
+        MenuCategory.objects.create(name='دسته آزمایشی', slug='iranian', sort_order=1)
         Building.objects.get_or_create(
             number='07',
             defaults={'is_active': True},
@@ -72,7 +74,7 @@ class ManagementReportTests(TestCase):
             price=1_000_000,
             container_price=100_000,
         )
-        menu = Menu.objects.create(date=date(2099, 1, 2), food=menu_food)
+        menu = Menu.objects.create(category=MenuCategory.objects.get(slug='iranian'), date=date(2099, 1, 2), food=menu_food)
 
         current_reservation = Reservation.objects.create(
             user=employee,
@@ -120,6 +122,7 @@ class ManagementReportTests(TestCase):
                 {
                     'date': '2099-01-02',
                     'food': 'Ghormeh sabzi',
+                    'category': 'دسته آزمایشی',
                     'reserved_count': 1,
                     'cancelled_count': 1,
                     'food_quantity': 1,
@@ -143,7 +146,7 @@ class ManagementReportTests(TestCase):
             price=1_000_000,
             container_price=100_000,
         )
-        menu = Menu.objects.create(date=date(2099, 2, 3), food=food)
+        menu = Menu.objects.create(category=MenuCategory.objects.get(slug='iranian'), date=date(2099, 2, 3), food=food)
 
         reservation = Reservation.objects.create(
             user=employee,
@@ -221,6 +224,7 @@ class ManagementReportTests(TestCase):
                 {
                     'date': '2099-02-03',
                     'food': 'Multi Food',
+                    'category': 'دسته آزمایشی',
                     'reserved_count': 1,
                     'cancelled_count': 1,
                     'food_quantity': 2,
@@ -250,7 +254,7 @@ class ManagementReportTests(TestCase):
             price=1_000_000,
             container_price=100_000,
         )
-        menu = Menu.objects.create(date=date(2099, 2, 3), food=food)
+        menu = Menu.objects.create(category=MenuCategory.objects.get(slug='iranian'), date=date(2099, 2, 3), food=food)
         reservation = Reservation.objects.create(user=employee, menu=menu)
 
         item = ReservationItem.objects.create(
@@ -310,7 +314,7 @@ class ManagementReportTests(TestCase):
                 None,
                 'report-excel',
                 '003',
-                'Excel Multi Food',
+                'Excel Multi Food (دسته آزمایشی)',
                 2,
                 2,
                 3,
@@ -339,11 +343,11 @@ class ManagementReportTests(TestCase):
             price=1_000_000,
             container_price=100_000,
         )
-        first_day = Menu.objects.create(
+        first_day = Menu.objects.create(category=MenuCategory.objects.get(slug='iranian'),
             date=date(2099, 3, 1),
             food=food,
         )
-        second_day = Menu.objects.create(
+        second_day = Menu.objects.create(category=MenuCategory.objects.get(slug='iranian'),
             date=date(2099, 3, 2),
             food=food,
         )
@@ -501,7 +505,7 @@ class ManagementReportTests(TestCase):
         first = rows[1]
 
         self.assertEqual(first[3], '003')
-        self.assertEqual(first[4], 'Detailed Excel Food')
+        self.assertEqual(first[4], 'Detailed Excel Food (دسته آزمایشی)')
         self.assertEqual(first[5], 2)
         self.assertEqual(first[6:10], (3, 1, 2, 1))
 
@@ -537,7 +541,7 @@ class ManagementReportTests(TestCase):
 
         viewer = create_user_in_group('viewer-prefix', VIEWER_ROLE)
         food = Food.objects.create(name='Prefix Food', price=100_000, container_price=10_000)
-        day = Menu.objects.create(date=date(2099, 5, 1), food=food)
+        day = Menu.objects.create(category=MenuCategory.objects.get(slug='iranian'), date=date(2099, 5, 1), food=food)
         Side.objects.create(name='Unused Side', price=25_000)
         Drink.objects.create(name='Unused Drink', price=15_000)
 
@@ -594,11 +598,11 @@ class ManagementReportTests(TestCase):
             container_price=10_000,
         )
 
-        day_1 = Menu.objects.create(
+        day_1 = Menu.objects.create(category=MenuCategory.objects.get(slug='iranian'),
             date=date(2099, 4, 1),
             food=food,
         )
-        day_2 = Menu.objects.create(
+        day_2 = Menu.objects.create(category=MenuCategory.objects.get(slug='iranian'),
             date=date(2099, 4, 2),
             food=food,
         )
@@ -708,6 +712,7 @@ class ManagementReportTests(TestCase):
                             {
                                 'date': '2099-04-01',
                                 'food': 'Building Report Food',
+                                'category': 'دسته آزمایشی',
                                 'reserved_count': 2,
                                 'food_quantity': 5,
                             },
@@ -720,12 +725,14 @@ class ManagementReportTests(TestCase):
                             {
                                 'date': '2099-04-01',
                                 'food': 'Building Report Food',
+                                'category': 'دسته آزمایشی',
                                 'reserved_count': 1,
                                 'food_quantity': 1,
                             },
                             {
                                 'date': '2099-04-02',
                                 'food': 'Building Report Food',
+                                'category': 'دسته آزمایشی',
                                 'reserved_count': 1,
                                 'food_quantity': 2,
                             },

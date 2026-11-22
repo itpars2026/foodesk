@@ -77,7 +77,17 @@ export type Reservation = {
   total_price: number
 }
 
+export type MenuCategory = {
+  id: number
+  name: string
+  slug: string
+  sort_order: number
+  is_active: boolean
+}
+
 export type WeeklyMenu = {
+  category?: MenuCategory
+
   food_image: string | null
   food_image_data: ImageData
   id: number

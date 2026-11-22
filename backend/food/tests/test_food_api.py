@@ -5,7 +5,7 @@ from django.urls import reverse
 from core.models import Building, CustomUser, Department
 from core.roles import HR_FOOD_ROLE
 from core.services import create_employee
-from food.models import Food, MenuStatus
+from food.models import Food, MenuCategory, MenuStatus
 
 
 def create_hr_food_user() -> CustomUser:
@@ -48,15 +48,17 @@ class FoodAPITests(TestCase):
     def test_menu_defaults_to_available_and_exposes_food_name(self):
         self.client.force_login(create_hr_food_user())
         food = Food.objects.create(name='Ghormeh sabzi', price=1_000_000, container_price=100_000)
+        category = MenuCategory.objects.create(name='نوع اول', slug='type-1', sort_order=1)
 
         response = self.client.post(
             reverse('menu-list'),
-            {'date': '2026-11-05', 'food': food.pk},
+            {'date': '2026-11-05', 'food': food.pk, 'category': category.pk},
         )
 
         assert response.status_code == 201
         assert response.json()['status'] == MenuStatus.AVAILABLE
         assert response.json()['food_name'] == 'Ghormeh sabzi'
+        assert response.json()['category'] == category.pk
 
     def test_menu_rejects_unknown_status(self):
         self.client.force_login(create_hr_food_user())

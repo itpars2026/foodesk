@@ -195,7 +195,7 @@ class ReservationService:
             if menu.status != MenuStatus.AVAILABLE:
                 raise ValidationError({'menu': 'این منو برای رزرو در دسترس نیست.'})
             if Reservation.objects.filter(user=user, menu=menu).exists():
-                raise ValidationError({'menu': f'برای تاریخ {menu.date} قبلاً رزرو ثبت شده است.'})
+                raise ValidationError({'menu': f'برای منوی {menu.category.name} در تاریخ {menu.date} قبلاً رزرو ثبت شده است.'})
             building = validate_reservation_building(row.get('building'))
             revision_data = {
                 **row,
@@ -312,11 +312,11 @@ def weekly_menus(user, start_date):
     end_date = start_date + timedelta(days=6)
     return (
         Menu.objects.filter(date__range=(start_date, end_date))
-        .select_related('food')
+        .select_related('food', 'category')
         .prefetch_related(
             'reservations__items',
         )
-        .order_by('date')
+        .order_by('date', 'category__sort_order', 'category_id')
     )
 
 

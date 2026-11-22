@@ -15,11 +15,12 @@ from typing import ClassVar
 from core.permissions import HasChangedInitialPassword, IsCatalogReaderOrManager, IsHRFoodViewerOrSuperAdmin
 from food.daily_excel import export_daily_excel
 from food.history_excel import export_full_history
-from food.models import Drink, Food, Menu, Reservation, ReservationItem, Side
+from food.models import Drink, Food, Menu, MenuCategory, Reservation, ReservationItem, Side
 from food.serializers import (
     DailyReportSerializer,
     DrinkSerializer,
     FoodSerializer,
+    MenuCategorySerializer,
     MenuSerializer,
     ReservationBatchInputSerializer,
     ReservationRevisionInputSerializer,
@@ -61,8 +62,14 @@ class DrinkViewSet(CatalogViewSet):
     serializer_class = DrinkSerializer
 
 
+class MenuCategoryViewSet(viewsets.ReadOnlyModelViewSet):
+    permission_classes: ClassVar[list] = [IsAuthenticated, HasChangedInitialPassword]
+    queryset = MenuCategory.objects.filter(is_active=True).order_by('sort_order', 'id')
+    serializer_class = MenuCategorySerializer
+
+
 class MenuViewSet(CatalogViewSet):
-    queryset = Menu.objects.select_related('food').all()
+    queryset = Menu.objects.select_related('food', 'category').all()
     serializer_class = MenuSerializer
 
 
@@ -75,7 +82,7 @@ class ReservationViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return (
             Reservation.objects.filter(user=self.request.user)
-            .select_related('menu__food', 'user')
+            .select_related('menu__food', 'menu__category', 'user')
             .prefetch_related(
                 'items__side',
                 'items__drink',
@@ -180,7 +187,7 @@ class DailyReportViewSet(viewsets.ViewSet):
 
         menus = (
             Menu.objects.filter(date__range=(start_date, end_date))
-            .select_related('food')
+            .select_related('food', 'category')
             .prefetch_related(
                 Prefetch(
                     'reservations',
@@ -220,6 +227,7 @@ class DailyReportViewSet(viewsets.ViewSet):
                 {
                     'date': menu.date,
                     'food': menu.food.name,
+                    'category': menu.category.name,
                     'reserved_count': reserved_count,
                     'cancelled_count': cancelled_count,
                     'food_quantity': food_quantity,
@@ -251,6 +259,7 @@ class DailyReportViewSet(viewsets.ViewSet):
         ).select_related(
             'building',
             'reservation__menu__food',
+            'reservation__menu__category',
         )
 
         grouped = {}
@@ -273,12 +282,13 @@ class DailyReportViewSet(viewsets.ViewSet):
                 },
             )
 
-            day_key = (menu.date, menu.food.name)
+            day_key = (menu.date, menu.category_id, menu.food.name)
             day = building['days'].setdefault(
                 day_key,
                 {
                     'date': menu.date.isoformat(),
                     'food': menu.food.name,
+                    'category': menu.category.name,
                     'reserved_count': 0,
                     'food_quantity': 0,
                 },

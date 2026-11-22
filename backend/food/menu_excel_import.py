@@ -9,7 +9,7 @@ from openpyxl import load_workbook
 from openpyxl.cell.cell import Cell
 
 from food.jalali import parse_jalali_date
-from food.models import Drink, Food, Menu, Side
+from food.models import Drink, Food, Menu, MenuCategory, Side
 
 MENU_SHEET = 'Foods'
 MENU_HEADERS = ('date', 'name', 'price_toman', 'container_price_toman', 'special_container_price_toman')
@@ -79,7 +79,7 @@ def _optional_toman(cell: Cell) -> int:
     return 0 if cell.value is None or cell.value == '' else _cell_toman(cell)
 
 
-def read_menu_rows(path: Path) -> list[MenuImportRow]:
+def read_menu_rows(path: Path, *, category: MenuCategory) -> list[MenuImportRow]:
     if path.suffix.lower() != '.xlsx':
         raise MenuWorkbookValidationError(['Only .xlsx files are supported.'])
     if not path.is_file():
@@ -132,7 +132,9 @@ def read_menu_rows(path: Path) -> list[MenuImportRow]:
                     food = Food.objects.get(name=food_name)
                 except Food.DoesNotExist as exc:
                     raise ValueError(f'food does not exist in catalog: {food_name}') from exc
-                existing = Menu.objects.filter(date=menu_date).select_related('food').first()
+                existing = Menu.objects.filter(date=menu_date, category=category).select_related('food').first()
+                if Menu.objects.filter(date=menu_date, category__isnull=True).exists():
+                    raise ValueError('uncategorized legacy menu exists on this date; assign legacy menus first')
                 if existing and (existing.food_id != food.pk or existing.food_price != food_price):
                     raise ValueError('a menu for this date already exists with different food or price')
                 rows.append(MenuImportRow(row_number, menu_date, food, food_price, existing is not None))
@@ -168,15 +170,19 @@ def read_menu_rows(path: Path) -> list[MenuImportRow]:
 
 
 @transaction.atomic
-def import_monthly_menu(path: Path, *, dry_run: bool = False) -> dict[str, int]:
-    rows = read_menu_rows(path)
+def import_monthly_menu(path: Path, *, category_slug: str, dry_run: bool = False) -> dict[str, int]:
+    try:
+        category = MenuCategory.objects.get(slug=category_slug, is_active=True)
+    except MenuCategory.DoesNotExist as exc:
+        raise MenuWorkbookValidationError([f'Active menu category not found: {category_slug}']) from exc
+    rows = read_menu_rows(path, category=category)
     counts = {'menus_created': 0, 'menus_unchanged': 0, 'sides': 0, 'drinks': 0}
     for row in rows:
         if row.is_existing:
             counts['menus_unchanged'] += 1
             continue
         if not dry_run:
-            Menu.objects.create(date=row.menu_date, food=row.food, food_price=row.food_price)
+            Menu.objects.create(date=row.menu_date, food=row.food, food_price=row.food_price, category=category)
         counts['menus_created'] += 1
     workbook = load_workbook(path, read_only=True, data_only=False)
     try:

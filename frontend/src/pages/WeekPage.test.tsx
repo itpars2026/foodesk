@@ -10,6 +10,13 @@ import WeekPage from './WeekPage'
 
 const menu: WeeklyMenu = {
   id: 101,
+  category: {
+    id: 1,
+    name: 'ایرانی',
+    slug: 'iranian',
+    sort_order: 1,
+    is_active: true,
+  },
   date: dateToIso(getWeekStart(new Date())),
   food_name: 'غذای آزمایشی',
   food_image: null,
@@ -551,6 +558,10 @@ describe('ReservationDialog building selection', () => {
 
     await user.click(
       await screen.findByRole('button', { name: 'انتخاب غذا' }),
+    )
+
+    await user.click(
+      screen.getByRole('tab', { name: /^پیش‌غذا/ }),
     )
 
     await user.click(

@@ -11,13 +11,14 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument('workbook', type=Path)
+        parser.add_argument('--category', required=True, help='Slug of an active menu category')
         parser.add_argument(
             '--dry-run', action='store_true', help='Validate the workbook without writing to the database.'
         )
 
     def handle(self, *args: Any, **options: Any) -> None:
         try:
-            counts = import_monthly_menu(options['workbook'], dry_run=options['dry_run'])
+            counts = import_monthly_menu(options['workbook'], category_slug=options['category'], dry_run=options['dry_run'])
         except MenuWorkbookValidationError as exc:
             raise CommandError(str(exc)) from exc
 

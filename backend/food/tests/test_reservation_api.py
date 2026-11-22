@@ -7,12 +7,14 @@ from unittest.mock import patch
 
 from core.models import Building, Department
 from core.services import create_employee
-from food.models import Drink, Food, Menu, Reservation, Side
+from food.models import MenuCategory, Drink, Food, Menu, Reservation, Side
 
 
 class ReservationAPITests(TestCase):
     @classmethod
     def setUpTestData(cls):
+        MenuCategory.objects.create(name='دسته آزمایشی', slug='iranian', sort_order=1)
+        MenuCategory.objects.create(name='دسته دوم', slug='foreign', sort_order=2)
         cls.building = Building.objects.create(
             number='07',
             is_active=True,
@@ -26,7 +28,7 @@ class ReservationAPITests(TestCase):
             price=1_000_000,
             container_price=100_000,
         )
-        cls.menu = Menu.objects.create(
+        cls.menu = Menu.objects.create(category=MenuCategory.objects.get(slug='iranian'),
             date=date(2099, 1, 2),
             food=cls.food,
         )
@@ -41,6 +43,30 @@ class ReservationAPITests(TestCase):
         self.user.must_change_password = False
         self.user.save(update_fields=['must_change_password'])
         self.client.force_login(self.user)
+
+    def test_two_categories_can_be_reserved_on_same_day(self):
+        foreign = MenuCategory.objects.get(slug='foreign')
+        foreign_menu = Menu.objects.create(
+            category=foreign,
+            date=self.menu.date,
+            food=self.food,
+        )
+        response = self.client.post(
+            reverse('reservation-list'),
+            {'reservations': [
+                {'menu': self.menu.pk, 'building': self.building.pk},
+                {'menu': foreign_menu.pk, 'building': self.building.pk},
+            ]},
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(len(response.json()), 2)
+        self.assertEqual(Reservation.objects.filter(user=self.user).count(), 2)
+        weekly_response = self.client.get(reverse('reservation-weekly'), {'start': '2099-01-02'})
+        self.assertEqual(weekly_response.status_code, 200, weekly_response.content)
+        same_day = [row for row in weekly_response.json() if row['date'] == '2099-01-02']
+        self.assertEqual({row['category']['slug'] for row in same_day}, {'iranian', 'foreign'})
+        self.assertTrue(all(row['reservation'] is not None for row in same_day))
 
     def test_catalog_repricing_preserves_revision_history(self):
         side = Side.objects.create(name='Salad', price=200_000)
@@ -655,7 +681,7 @@ class ReservationAPITests(TestCase):
         self.assertEqual(cancelled_item.building_number_snapshot, '07')
 
     def test_employee_cannot_reserve_past_menu_or_reserve_twice(self):
-        past_menu = Menu.objects.create(
+        past_menu = Menu.objects.create(category=MenuCategory.objects.get(slug='iranian'),
             date='2000-01-02',
             food=self.food,
         )
@@ -988,7 +1014,7 @@ class ReservationAPITests(TestCase):
         )
 
     def test_reservation_batch_rolls_back_when_one_day_is_invalid(self):
-        past_menu = Menu.objects.create(
+        past_menu = Menu.objects.create(category=MenuCategory.objects.get(slug='iranian'),
             date='2000-01-02',
             food=self.food,
         )
@@ -1041,7 +1067,7 @@ class ReservationAPITests(TestCase):
             price=100_000,
             container_price=10_000,
         )
-        menu = Menu.objects.create(
+        menu = Menu.objects.create(category=MenuCategory.objects.get(slug='iranian'),
             date='2099-01-03',
             food=food,
         )

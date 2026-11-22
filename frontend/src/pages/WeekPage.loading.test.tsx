@@ -16,6 +16,13 @@ const thirdWeek = dateToIso(addDays(weekStart, 14))
 function makeMenu(date: string, name: string): WeeklyMenu {
   return {
     id: 101,
+    category: {
+      id: 1,
+      name: 'ایرانی',
+      slug: 'iranian',
+      sort_order: 1,
+      is_active: true,
+    },
     date,
     food_name: name,
     food_price: 100_000,

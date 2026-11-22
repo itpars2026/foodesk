@@ -4,7 +4,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError as DjangoValidationError
 
 from core.models import Building
-from food.models import Drink, Food, Menu, MenuStatus, Reservation, ReservationItem, Side
+from food.models import Drink, Food, Menu, MenuCategory, MenuStatus, Reservation, ReservationItem, Side
 from food.services import prepare_catalog_image
 
 
@@ -69,8 +69,17 @@ class DrinkSerializer(CatalogImageSerializerMixin, serializers.ModelSerializer):
         read_only_fields = ('datetime_created', 'datetime_modified')
 
 
+class MenuCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MenuCategory
+        fields = ('id', 'name', 'slug', 'sort_order', 'is_active')
+        read_only_fields = fields
+
+
 class MenuSerializer(serializers.ModelSerializer):
     food_name = serializers.CharField(source='food.name', read_only=True)
+    category_name = serializers.CharField(source='category.name', read_only=True)
+    category_slug = serializers.CharField(source='category.slug', read_only=True)
     food_price = serializers.IntegerField(read_only=True)
 
     class Meta:
@@ -78,6 +87,9 @@ class MenuSerializer(serializers.ModelSerializer):
         fields = (
             'id',
             'date',
+            'category',
+            'category_name',
+            'category_slug',
             'food',
             'food_name',
             'food_price',
@@ -89,6 +101,7 @@ class MenuSerializer(serializers.ModelSerializer):
 
 
 class DailyReportSerializer(serializers.Serializer):
+    category = serializers.CharField(read_only=True)
     date = serializers.DateField(read_only=True)
     food = serializers.CharField(read_only=True)
     reserved_count = serializers.IntegerField(read_only=True)
@@ -223,6 +236,7 @@ class ReservationItemSerializer(serializers.ModelSerializer):
 
 
 class ReservationSerializer(serializers.ModelSerializer):
+    category = MenuCategorySerializer(source='menu.category', read_only=True)
     menu_date = serializers.DateField(source='menu.date', read_only=True)
     food_name = serializers.CharField(source='menu.food.name', read_only=True)
     current_item = ReservationItemSerializer(read_only=True)
@@ -234,6 +248,7 @@ class ReservationSerializer(serializers.ModelSerializer):
         fields = (
             'id',
             'menu',
+            'category',
             'status',
             'menu_date',
             'food_name',
@@ -247,6 +262,7 @@ class ReservationSerializer(serializers.ModelSerializer):
 
 
 class WeeklyMenuSerializer(serializers.ModelSerializer):
+    category = MenuCategorySerializer(read_only=True)
     can_reserve = serializers.SerializerMethodField()
     food_name = serializers.CharField(source='food.name', read_only=True)
     food_image = serializers.ImageField(source='food.image', read_only=True)
@@ -263,6 +279,7 @@ class WeeklyMenuSerializer(serializers.ModelSerializer):
         fields = (
             'id',
             'date',
+            'category',
             'food_name',
             'food_image',
             'food_image_data',

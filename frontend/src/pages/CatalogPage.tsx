@@ -4,7 +4,7 @@ import { RefreshCw } from 'lucide-react'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { FormEvent } from 'react'
 import { api } from '../api/client'
-import type { CatalogItem } from '../api/types'
+import type { CatalogItem, MenuCategory } from '../api/types'
 import { buttonClass, iconButtonClass } from '../components/ui/buttonStyles'
 import { addDays, dateToIso } from '../utils/date'
 import { getApiMessage } from '../utils/errors'
@@ -29,6 +29,8 @@ export default function CatalogPage() {
   const itemImageInputRef = useRef<HTMLInputElement>(null)
   const [menuDate, setMenuDate] = useState(dateToIso(addDays(new Date(), 1)))
   const [selectedFood, setSelectedFood] = useState('')
+  const [categories, setCategories] = useState<MenuCategory[]>([])
+  const [menuCategory, setMenuCategory] = useState('')
   const [kind, setKind] = useState<CatalogKind>('sides')
   const [itemName, setItemName] = useState('')
   const [itemPrice, setItemPrice] = useState('')
@@ -53,11 +55,18 @@ export default function CatalogPage() {
     if (!silent) setLoading(true)
     setError('')
     try {
-      const [foodRows, sideRows, drinkRows] = await Promise.all([
+      const [foodRows, sideRows, drinkRows, categoriesRows] = await Promise.all([
         api<(CatalogItem & { container_price: number; total_price: number })[]>('/foods'),
         api<CatalogItem[]>('/sides'),
         api<CatalogItem[]>('/drinks'),
+        api<MenuCategory[]>('/menu-categories'),
       ])
+      setCategories(categoriesRows)
+      setMenuCategory((value) =>
+        categoriesRows.some((category) => String(category.id) === value)
+          ? value
+          : String(categoriesRows[0]?.id ?? ''),
+      )
       setFoods(foodRows)
       setSides(sideRows)
       setDrinks(drinkRows)
@@ -76,9 +85,16 @@ export default function CatalogPage() {
       api<(CatalogItem & { container_price: number; total_price: number })[]>('/foods'),
       api<CatalogItem[]>('/sides'),
       api<CatalogItem[]>('/drinks'),
+      api<MenuCategory[]>('/menu-categories'),
     ])
-      .then(([foodRows, sideRows, drinkRows]) => {
+      .then(([foodRows, sideRows, drinkRows, categoriesRows]) => {
         if (!active) return
+        setCategories(categoriesRows)
+        setMenuCategory((value) =>
+          categoriesRows.some((category) => String(category.id) === value)
+            ? value
+            : String(categoriesRows[0]?.id ?? ''),
+        )
         setFoods(foodRows)
         setSides(sideRows)
         setDrinks(drinkRows)
@@ -171,7 +187,7 @@ export default function CatalogPage() {
     setError('')
     setNotice('')
     try {
-      await api('/menus', { method: 'POST', body: JSON.stringify({ date: menuDate, food: Number(selectedFood) }) })
+      await api('/menus', { method: 'POST', body: JSON.stringify({ date: menuDate, food: Number(selectedFood), category: Number(menuCategory) }) })
       setNotice('منوی این روز ثبت شد.')
     } catch (saveError) { setError(getApiMessage(saveError)) }
   }
@@ -254,7 +270,7 @@ export default function CatalogPage() {
 </details>
       <details className="open:z-30 relative min-w-0 overflow-visible rounded-xl border border-line bg-surface">
   <summary className="cursor-pointer border-b border-line bg-raised px-5 py-4 text-sm font-semibold text-ink hover:bg-active">ثبت منوی روز</summary>
-<div className="p-3 pt-0"><section className="min-w-0 rounded-xl border border-line bg-surface p-[18px]"><h2 className="mt-0 mb-[15px] text-base">ثبت منوی روز</h2><form className="grid gap-3" onSubmit={(event) => void createMenu(event)}><fieldset className="flex min-w-0 flex-col gap-2 !m-0 border-0 p-0"><legend className="mb-2 text-sm font-semibold text-ink">تاریخ</legend><JalaliDatePicker onChange={setMenuDate} required value={menuDate} /></fieldset><fieldset className="flex min-w-0 flex-col gap-2 !m-0 border-0 p-0"><legend className="mb-2 text-sm font-semibold text-ink">غذای روز</legend><FoodPicker foods={foods} value={selectedFood} onChange={setSelectedFood} /></fieldset><button className={buttonClass('primary', '')} disabled={!foods.length} type="submit">ثبت منو</button></form></section></div>
+<div className="p-3 pt-0"><section className="min-w-0 rounded-xl border border-line bg-surface p-[18px]"><h2 className="mt-0 mb-[15px] text-base">ثبت منوی روز</h2><form className="grid gap-3" onSubmit={(event) => void createMenu(event)}><fieldset className="flex min-w-0 flex-col gap-2 !m-0 border-0 p-0"><legend className="mb-2 text-sm font-semibold text-ink">تاریخ</legend><JalaliDatePicker onChange={setMenuDate} required value={menuDate} /></fieldset><fieldset className="flex min-w-0 flex-col gap-2 !m-0 border-0 p-0"><legend className="mb-2 text-sm font-semibold text-ink">دسته منو</legend><select aria-label="دسته منو" required value={menuCategory} onChange={(event) => setMenuCategory(event.target.value)} className="min-h-[44px] rounded-lg border border-line bg-surface px-3 text-ink">{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></fieldset><fieldset className="flex min-w-0 flex-col gap-2 !m-0 border-0 p-0"><legend className="mb-2 text-sm font-semibold text-ink">غذای روز</legend><FoodPicker foods={foods} value={selectedFood} onChange={setSelectedFood} /></fieldset><button className={buttonClass('primary', '')} disabled={!foods.length || !menuCategory} type="submit">ثبت منو</button></form></section></div>
 </details>
       <details className="open:z-30 relative min-w-0 overflow-visible rounded-xl border border-line bg-surface">
   <summary className="cursor-pointer border-b border-line bg-raised px-5 py-4 text-sm font-semibold text-ink hover:bg-active">افزودن گزینهٔ جانبی</summary>

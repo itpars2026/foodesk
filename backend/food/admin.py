@@ -4,7 +4,7 @@ from unfold.admin import ModelAdmin
 from unfold.contrib.filters.admin import AutocompleteSelectFilter
 
 from food.forms import DrinkAdminForm, FoodAdminForm, SideAdminForm
-from food.models import Drink, Food, Menu, Reservation, Side
+from food.models import Drink, Food, Menu, MenuCategory, Reservation, Side
 
 
 @admin.register(Food)
@@ -31,12 +31,20 @@ class DrinkAdmin(ModelAdmin):
     form = DrinkAdminForm
 
 
+@admin.register(MenuCategory)
+class MenuCategoryAdmin(ModelAdmin):
+    list_display = ('name', 'slug', 'sort_order', 'is_active')
+    list_editable = ('sort_order', 'is_active')
+    search_fields = ('name', 'slug')
+    readonly_fields = ('datetime_created', 'datetime_modified')
+
+
 @admin.register(Menu)
 class MenuAdmin(ModelAdmin):
-    list_display = ('date', 'food', 'food_price', 'status', 'datetime_modified')
-    list_filter = ('status', 'date')
+    list_display = ('date', 'category', 'food', 'food_price', 'status', 'datetime_modified')
+    list_filter = ('category', 'status', 'date')
     search_fields = ('food__name',)
-    autocomplete_fields = ('food',)
+    autocomplete_fields = ('food', 'category')
     readonly_fields = ('datetime_created', 'datetime_modified')
 
 

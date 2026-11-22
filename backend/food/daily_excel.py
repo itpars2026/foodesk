@@ -88,7 +88,7 @@ def export_daily_excel(start_date, end_date):
             menu__date__range=(start_date, end_date),
             status=Reservation.Status.RESERVED,
         )
-        .select_related('menu__food', 'user__profile__department')
+        .select_related('menu__food', 'menu__category', 'user__profile__department')
         .prefetch_related(Prefetch('items', queryset=current_items, to_attr='export_current_items'))
     )
     records = []
@@ -103,7 +103,7 @@ def export_daily_excel(start_date, end_date):
                 'building': str(building),
                 'personnel': str(personnel),
                 'department': str(department),
-                'food': reservation.menu.food.name,
+                'food': f'{reservation.menu.food.name} ({reservation.menu.category.name})',
                 'quantity': item.food_quantity,
                 'sides': quantities(item, 'side'),
                 'drinks': quantities(item, 'drink'),
@@ -134,7 +134,7 @@ def export_daily_excel(start_date, end_date):
     delivery_counts = {}
     for r in records:
         order_key = (r['date'], r['food'])
-        delivery_key = (r['building'], r['date'], r['food'])
+        delivery_key = (r['building'][:2], r['date'], r['food'])
         
         for target, key in ((order_counts, order_key), (delivery_counts, delivery_key)):
             if key not in target:

@@ -10,6 +10,13 @@ import WeekPage from './WeekPage'
 
 const menu: WeeklyMenu = {
   id: 101,
+  category: {
+    id: 1,
+    name: 'ایرانی',
+    slug: 'iranian',
+    sort_order: 1,
+    is_active: true,
+  },
   date: dateToIso(getWeekStart(new Date())),
   food_name: 'غذای آزمایشی',
   food_price: 100_000,
@@ -123,6 +130,10 @@ describe('WeekPage multi-selection integration', () => {
         }),
       ).toHaveValue('7')
     })
+
+    await user.click(
+      screen.getByRole('tab', { name: /^پیش‌غذا/ }),
+    )
 
     await user.click(
       screen.getByRole('button', {
@@ -273,6 +284,10 @@ describe('WeekPage multi-selection integration', () => {
         }),
       ).toHaveValue('8')
     })
+
+    await user.click(
+      screen.getByRole('tab', { name: /^پیش‌غذا/ }),
+    )
 
     expect(
       screen.getByLabelText('تعداد پیش‌غذا (اختیاری) سالاد'),

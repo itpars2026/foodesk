@@ -73,7 +73,22 @@ class MenuStatus(models.TextChoices):
     CANCELLED = 'can', 'Cancelled'
 
 
+class MenuCategory(TimestampedModel):
+    name = models.CharField(max_length=100)
+    slug = models.SlugField(max_length=100, unique=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ('sort_order', 'id')
+        verbose_name_plural = 'Menu categories'
+
+    def __str__(self) -> str:
+        return self.name
+
+
 class Menu(TimestampedModel):
+    category = models.ForeignKey(MenuCategory, on_delete=models.PROTECT, related_name='menus')
     date = models.DateField()
     food = models.ForeignKey(Food, on_delete=models.PROTECT, related_name='menus')
     food_price = models.PositiveBigIntegerField(
@@ -88,10 +103,10 @@ class Menu(TimestampedModel):
     )
 
     class Meta:
-        constraints: ClassVar[list] = [models.UniqueConstraint(fields=('date',), name='unique_menu_per_date')]
+        constraints: ClassVar[list] = [models.UniqueConstraint(fields=('date', 'category'), name='unique_menu_per_date_category')]
 
     def __str__(self) -> str:
-        return f'{self.date}: {self.food}'
+        return f'{self.date} [{self.category}]: {self.food}'
 
     def save(self, *args, **kwargs) -> None:
         if self.food_price is None:

@@ -11,6 +11,7 @@ from unittest.mock import patch
 import jdatetime
 
 from food.models import (
+    MenuCategory,
     Drink,
     Food,
     Menu,
@@ -30,6 +31,7 @@ def gregorian(year, month, day):
 class WalletTests(TestCase):
     @classmethod
     def setUpTestData(cls):
+        MenuCategory.objects.create(name='دسته آزمایشی', slug='iranian', sort_order=1)
         user_model = get_user_model()
         cls.user = user_model.objects.create_user(
             username='wallet-owner',
@@ -68,7 +70,7 @@ class WalletTests(TestCase):
         price=100000,
         quantity=1,
     ):
-        menu = Menu.objects.create(
+        menu = Menu.objects.create(category=MenuCategory.objects.get(slug='iranian'),
             date=gregorian(year, month, day),
             food=self.food,
         )

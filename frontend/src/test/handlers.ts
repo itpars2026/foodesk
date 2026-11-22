@@ -1,6 +1,9 @@
 import { http, HttpResponse } from 'msw'
 
 export const handlers = [
+  http.get('*/api/v1/menu-categories', () =>
+    HttpResponse.json([{ id: 1, name: 'ایرانی', slug: 'iranian', sort_order: 1, is_active: true }])
+  ),
   http.get('*/api/v1/auth/session', () =>
     HttpResponse.json({ authenticated: false })
   ),

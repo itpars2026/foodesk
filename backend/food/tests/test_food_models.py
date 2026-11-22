@@ -3,10 +3,14 @@ from django.test import TestCase
 
 from datetime import date
 
-from food.models import Drink, Food, Menu, MenuStatus, Side
+from food.models import MenuCategory, Drink, Food, Menu, MenuStatus, Side
 
 
 class FoodModelTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        MenuCategory.objects.create(name='دسته آزمایشی', slug='iranian', sort_order=1)
+
     def test_food_total_price_is_calculated_by_database(self):
         food = Food.objects.create(name='Ghormeh sabzi', price=1_000_000, container_price=100_000)
 
@@ -35,13 +39,13 @@ class FoodModelTests(TestCase):
     def test_menu_defaults_to_available(self):
         food = Food.objects.create(name='Ghormeh sabzi', price=1_000_000, container_price=100_000)
 
-        menu = Menu.objects.create(date=date(2026, 11, 5), food=food)
+        menu = Menu.objects.create(category=MenuCategory.objects.get(slug='iranian'), date=date(2026, 11, 5), food=food)
 
         assert menu.status == MenuStatus.AVAILABLE
 
     def test_food_referenced_by_menu_is_protected_from_deletion(self):
         food = Food.objects.create(name='Ghormeh sabzi', price=1_000_000, container_price=100_000)
-        Menu.objects.create(date=date(2026, 11, 5), food=food)
+        Menu.objects.create(category=MenuCategory.objects.get(slug='iranian'), date=date(2026, 11, 5), food=food)
 
         with self.assertRaises(ProtectedError):
             food.delete()

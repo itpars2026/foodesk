@@ -10,7 +10,7 @@ import type { FormEvent } from 'react'
 
 import { api } from '../api/client'
 import { getProfile, getProfileOptions } from '../api/endpoints'
-import type { CatalogItem, ProfileOption, Reservation, WeeklyMenu } from '../api/types'
+import type { CatalogItem, MenuCategory, ProfileOption, Reservation, WeeklyMenu } from '../api/types'
 import EmptyState from '../components/ui/EmptyState'
 import ErrorMessage from '../components/ui/ErrorMessage'
 import WeekSkeleton from '../components/ui/WeekSkeleton'
@@ -52,6 +52,8 @@ function selectionTotal(
 export default function WeekPage() {
   const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()))
   const [menus, setMenus] = useState<WeeklyMenu[]>([])
+  const [categories, setCategories] = useState<MenuCategory[]>([])
+  const [activeCategory, setActiveCategory] = useState('')
   const [sides, setSides] = useState<CatalogItem[]>([])
   const [drinks, setDrinks] = useState<CatalogItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -64,15 +66,22 @@ export default function WeekPage() {
 
   const fetchWeek = useCallback(async (id: number, week: string) => {
     try {
-      const [weekMenus, sideItems, drinkItems] = await Promise.all([
+      const [weekMenus, sideItems, drinkItems, availableCategories] = await Promise.all([
         api<WeeklyMenu[]>(`/reservations/weekly?start=${week}`),
         api<CatalogItem[]>('/sides'),
         api<CatalogItem[]>('/drinks'),
+        api<MenuCategory[]>('/menu-categories'),
       ])
 
       if (id !== requestId.current) return
 
       setMenus(weekMenus)
+      setCategories(availableCategories)
+      setActiveCategory((current) =>
+        availableCategories.some((category) => category.slug === current)
+          ? current
+          : (availableCategories[0]?.slug ?? ''),
+      )
       setSides(sideItems)
       setDrinks(drinkItems)
     } catch (loadError) {
@@ -107,9 +116,9 @@ export default function WeekPage() {
 
   const days = useMemo(() => Array.from({ length: 6 }, (_, index) => {
     const date = dateToIso(addDays(weekStart, index))
-    return { date, menu: menus.find((menu) => menu.date === date) ?? null }
-  }), [menus, weekStart])
-  const reservationCount = days.filter(({ menu }) => menu?.reservation?.status === 'res').length
+    return { date, menu: menus.find((menu) => menu.date === date && menu.category?.slug === activeCategory) ?? null }
+  }), [menus, weekStart, activeCategory])
+  const reservationCount = menus.filter((menu) => menu.reservation?.status === 'res').length
   const visibleDays = days.filter(({ menu }) => {
     if (filter === 'reserved') return menu?.reservation?.status === 'res'
     if (filter === 'open') return menu && menu.can_reserve && menu.reservation?.status !== 'res'
@@ -122,7 +131,7 @@ export default function WeekPage() {
         <div>
           <p className="mt-0 mb-2 text-xs font-bold text-accent">برنامهٔ هفتگی</p>
           <h1 id="week-title">غذای هفته</h1>
-          <p className="mt-[7px] mb-0 text-sm leading-[1.7] text-muted max-[680px]:max-w-[440px] max-[680px]:text-xs">هر روز یک غذا برای انتخاب؛ پیش‌غذا و نوشیدنی اختیاری است.</p>
+          <p className="mt-[7px] mb-0 text-sm leading-[1.7] text-muted max-[680px]:max-w-[440px] max-[680px]:text-xs">منوهای هر دسته به‌صورت مستقل قابل رزرو هستند؛ پیش‌غذا و نوشیدنی اختیاری است.</p>
         </div>
         <button
           aria-label="تازه‌سازی برنامه هفتگی"
@@ -134,6 +143,9 @@ export default function WeekPage() {
           <span className="max-[680px]:hidden">تازه‌سازی</span>
         </button>
       </div>
+
+      {!categories.length && !loading && <EmptyState title="هنوز دسته منویی تعریف نشده است" detail="مدیر سامانه باید دسته‌ها را از پنل مدیریت ایجاد کند." />}
+
 
       <div className="flex min-h-[58px] items-center justify-between gap-[14px] border-y border-line py-2 max-[680px]:flex-col-reverse max-[680px]:items-start max-[680px]:gap-[5px] max-[680px]:py-[10px]">
         <div className="flex items-center gap-[9px] max-[680px]:w-full max-[680px]:justify-between max-[680px]:gap-[3px]">
@@ -169,9 +181,39 @@ export default function WeekPage() {
       </div>
 
       {error && <ErrorMessage message={error} onRetry={() => void load()} />}
+      {/* Dynamic menu categories */}
+      {categories.length > 0 && (
+        <div
+          role="tablist"
+          aria-label="دسته‌بندی منوی غذا"
+          className="flex flex-wrap items-center justify-start gap-2 border-b border-line py-3"
+        >
+          {categories.map((category) => {
+            const isActive = activeCategory === category.slug
+
+            return (
+              <button
+                key={category.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setActiveCategory(category.slug)}
+                className={`inline-flex min-h-10 items-center justify-center rounded-full border px-5 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#EF816E] ${
+                  isActive
+                    ? 'border-[#EF816E] bg-[#FCE8E3] text-[#C95443] dark:border-[#EF816E] dark:bg-[#EF816E]/20 dark:text-[#FFAA98]'
+                    : 'border-[#EF816E]/60 bg-transparent text-[#C95443] hover:bg-[#FCE8E3] dark:text-[#FFAA98] dark:hover:bg-[#EF816E]/10'
+                }`}
+              >
+                {category.name}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       {loading ? <WeekSkeleton /> : visibleDays.length === 0 ? <EmptyState title="روزی با این فیلتر پیدا نشد" detail="فیلتر دیگری را انتخاب کن." /> : (
         <div className="border-t border-line">
-          {visibleDays.map(({ date, menu }, index) => (
+      {visibleDays.map(({ date, menu }, index) => (
             <DayRow
               date={date}
               index={index}
@@ -476,7 +518,7 @@ function ReservationDialog({
   }
 
   const [activeCatalogTab, setActiveCatalogTab] =
-    useState<'side' | 'drink'>('side')
+    useState<'food' | 'side' | 'drink'>('food')
 
   async function cancelReservation() {
     if (!menu.reservation) return
@@ -509,7 +551,70 @@ function ReservationDialog({
         </div>
         {saved || cancelled ? <div className="rounded-[9px] border border-[#c9e5d7] bg-[#f0faf4] p-[14px] leading-[1.8] text-[#176441] dark:border-positive/40 dark:bg-raised dark:text-positive" role="status">{saved ? 'انتخابت برای این روز ثبت شد.' : 'رزرو این روز لغو شد و در سوابق باقی ماند.'}</div> : <form className="flex min-h-0 flex-1 flex-col overflow-hidden" onSubmit={save}>
   <div className="min-h-0 flex-1 space-y-[11px] overflow-y-auto overscroll-y-contain pt-4 pe-1">
-<div className="grid min-w-0 grid-cols-2 items-center gap-3">
+          <div className="min-w-0 overflow-hidden rounded-xl border border-line bg-surface p-3">
+            <div
+              role="tablist"
+              aria-label="انتخاب غذا و پیش‌غذا و نوشیدنی"
+              className="mb-3 grid grid-cols-3 gap-1 rounded-lg bg-raised p-1"
+            >
+              <button
+                type="button"
+                role="tab"
+                id="reservation-food-tab"
+                aria-controls="reservation-catalog-panel"
+                aria-selected={activeCatalogTab === 'food'}
+                onClick={() => setActiveCatalogTab('food')}
+                className={`min-h-10 rounded-md px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-accent ${activeCatalogTab === 'food' ? 'bg-surface text-ink shadow-sm' : 'text-muted hover:text-ink'}`}
+              >غذا</button>
+              <button
+                type="button"
+                role="tab"
+                id="reservation-side-tab"
+                aria-controls="reservation-catalog-panel"
+                aria-selected={activeCatalogTab === 'side'}
+                onClick={() => setActiveCatalogTab('side')}
+                className={`min-h-10 rounded-md px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-accent ${
+                  activeCatalogTab === 'side'
+                    ? 'bg-surface text-ink shadow-sm'
+                    : 'text-muted hover:text-ink'
+                }`}
+              >
+                پیش‌غذا
+                <span className="ms-1 text-xs">
+                  ({Object.values(sideQuantities).filter((quantity) => quantity > 0).length})
+                </span>
+              </button>
+
+              <button
+                type="button"
+                role="tab"
+                id="reservation-drink-tab"
+                aria-controls="reservation-catalog-panel"
+                aria-selected={activeCatalogTab === 'drink'}
+                onClick={() => setActiveCatalogTab('drink')}
+                className={`min-h-10 rounded-md px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-accent ${
+                  activeCatalogTab === 'drink'
+                    ? 'bg-surface text-ink shadow-sm'
+                    : 'text-muted hover:text-ink'
+                }`}
+              >
+                نوشیدنی
+                <span className="ms-1 text-xs">
+                  ({Object.values(drinkQuantities).filter((quantity) => quantity > 0).length})
+                </span>
+              </button>
+            </div>
+
+            <div
+              id="reservation-catalog-panel"
+              role="tabpanel"
+              aria-labelledby={
+                activeCatalogTab === 'food' ? 'reservation-food-tab' : activeCatalogTab === 'side' ? 'reservation-side-tab' : 'reservation-drink-tab'
+              }
+              className="min-w-0"
+            >
+              {activeCatalogTab === 'food' ? (
+                <div className="space-y-3"><div className="grid min-w-0 grid-cols-2 items-center gap-3">
             <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
               <span className="text-sm font-semibold text-ink">
                 تعداد غذا
@@ -559,62 +664,8 @@ function ReservationDialog({
               </strong>
             </div>
           </div>
-          <div className="min-w-0 overflow-hidden rounded-xl border border-line bg-surface p-3">
-            <div
-              role="tablist"
-              aria-label="انتخاب پیش‌غذا و نوشیدنی"
-              className="mb-3 grid grid-cols-2 gap-1 rounded-lg bg-raised p-1"
-            >
-              <button
-                type="button"
-                role="tab"
-                id="reservation-side-tab"
-                aria-controls="reservation-catalog-panel"
-                aria-selected={activeCatalogTab === 'side'}
-                onClick={() => setActiveCatalogTab('side')}
-                className={`min-h-10 rounded-md px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-accent ${
-                  activeCatalogTab === 'side'
-                    ? 'bg-surface text-ink shadow-sm'
-                    : 'text-muted hover:text-ink'
-                }`}
-              >
-                پیش‌غذا
-                <span className="ms-1 text-xs">
-                  ({Object.values(sideQuantities).filter((quantity) => quantity > 0).length})
-                </span>
-              </button>
-
-              <button
-                type="button"
-                role="tab"
-                id="reservation-drink-tab"
-                aria-controls="reservation-catalog-panel"
-                aria-selected={activeCatalogTab === 'drink'}
-                onClick={() => setActiveCatalogTab('drink')}
-                className={`min-h-10 rounded-md px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-accent ${
-                  activeCatalogTab === 'drink'
-                    ? 'bg-surface text-ink shadow-sm'
-                    : 'text-muted hover:text-ink'
-                }`}
-              >
-                نوشیدنی
-                <span className="ms-1 text-xs">
-                  ({Object.values(drinkQuantities).filter((quantity) => quantity > 0).length})
-                </span>
-              </button>
-            </div>
-
-            <div
-              id="reservation-catalog-panel"
-              role="tabpanel"
-              aria-labelledby={
-                activeCatalogTab === 'side'
-                  ? 'reservation-side-tab'
-                  : 'reservation-drink-tab'
-              }
-              className="min-w-0"
-            >
-              {activeCatalogTab === 'side' ? (
+<p className="m-0 text-sm text-muted">{menu.food_name} — {formatMoney(menu.food_price)} × {foodQuantity}</p></div>
+              ) : activeCatalogTab === 'side' ? (
                 <CatalogMultiSelect
                   label="پیش‌غذا (اختیاری)"
                   items={sides}
