@@ -72,6 +72,7 @@ const walletSummaryHandler = http.get(
 
 describe('Authentication and routing', () => {
   beforeEach(() => {
+    sessionStorage.clear()
     server.use(walletSummaryHandler)
     window.history.replaceState({}, '', '/')
   })
@@ -211,9 +212,7 @@ describe('Authentication and routing', () => {
 
     await waitFor(() => {
       expect(window.location.pathname).toBe('/login')
-      expect(
-        new URLSearchParams(window.location.search).get('next')
-      ).toBe('/history')
+      expect(window.location.search).toBe('')
     })
 
     await screen.findByRole('heading', {
@@ -233,6 +232,142 @@ describe('Authentication and routing', () => {
     })
   })
 
+  it('preserves destination after login page refresh', async () => {
+    server.use(
+      http.post('*/api/v1/auth/login', () =>
+        HttpResponse.json(employee)
+      )
+    )
+
+    const firstRender = renderAt('/history')
+
+    await screen.findByRole('heading', {
+      name: 'ورود به حساب',
+    })
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/login')
+      expect(window.location.search).toBe('')
+      expect(sessionStorage.getItem('foodesk:login-redirect'))
+        .toBe('/history')
+    })
+
+    firstRender.unmount()
+
+    renderAt('/login')
+
+    await screen.findByRole('heading', {
+      name: 'ورود به حساب',
+    })
+
+    await fillLogin()
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'صفحه سوابق آزمایشی',
+      })
+    ).toBeInTheDocument()
+
+    expect(window.location.pathname).toBe('/history')
+    expect(window.location.search).toBe('')
+    expect(sessionStorage.getItem('foodesk:login-redirect'))
+      .toBeNull()
+  })
+
+  it('cleans legacy next query and preserves destination', async () => {
+    server.use(
+      http.post('*/api/v1/auth/login', () =>
+        HttpResponse.json(employee)
+      )
+    )
+
+    renderAt('/login?next=%2Fhistory')
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/login')
+      expect(window.location.search).toBe('')
+      expect(sessionStorage.getItem('foodesk:login-redirect'))
+        .toBe('/history')
+    })
+
+    await fillLogin()
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'صفحه سوابق آزمایشی',
+      })
+    ).toBeInTheDocument()
+
+    expect(window.location.pathname).toBe('/history')
+  })
+
+  it('returns to history after login and mandatory password change', async () => {
+    const user = userEvent.setup()
+
+    server.use(
+      http.post('*/api/v1/auth/login', () =>
+        HttpResponse.json({
+          ...employee,
+          must_change_password: true,
+        })
+      ),
+      http.post('*/api/v1/auth/change-password', () =>
+        HttpResponse.json({
+          ...employee,
+          must_change_password: false,
+        })
+      )
+    )
+
+    renderAt('/history')
+
+    await screen.findByRole('heading', {
+      name: 'ورود به حساب',
+    })
+
+    await fillLogin()
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'یک رمز تازه انتخاب کن',
+      })
+    ).toBeInTheDocument()
+
+    expect(window.location.pathname).toBe('/login')
+    expect(window.location.search).toBe('')
+
+    await user.type(
+      screen.getByLabelText('رمز فعلی'),
+      'old-password'
+    )
+
+    await user.type(
+      screen.getByLabelText('رمز جدید'),
+      'new-password-123'
+    )
+
+    await user.type(
+      screen.getByLabelText('تکرار رمز جدید'),
+      'new-password-123'
+    )
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'ذخیرهٔ رمز جدید',
+      })
+    )
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'صفحه سوابق آزمایشی',
+      })
+    ).toBeInTheDocument()
+
+    expect(window.location.pathname).toBe('/history')
+    expect(sessionStorage.getItem('foodesk:login-redirect'))
+      .toBeNull()
+  })
+
   it('shows the API error and stays on login', async () => {
     renderAt('/history')
 
@@ -247,9 +382,7 @@ describe('Authentication and routing', () => {
     ).toHaveTextContent('نام کاربری یا رمز عبور اشتباه است.')
 
     expect(window.location.pathname).toBe('/login')
-    expect(
-      new URLSearchParams(window.location.search).get('next')
-    ).toBe('/history')
+    expect(window.location.search).toBe('')
   })
 
   it('denies catalog access to Viewer', async () => {
@@ -367,9 +500,7 @@ describe('Authentication and routing', () => {
 
     await waitFor(() => {
       expect(window.location.pathname).toBe('/login')
-      expect(
-        new URLSearchParams(window.location.search).get('next')
-      ).toBe('/history')
+      expect(window.location.search).toBe('')
     })
 
     expect(
@@ -483,9 +614,7 @@ describe('Authentication and routing', () => {
 
     await waitFor(() => {
       expect(window.location.pathname).toBe('/login')
-      expect(
-        new URLSearchParams(window.location.search).get('next')
-      ).toBe('/history')
+      expect(window.location.search).toBe('')
     })
 
     expect(

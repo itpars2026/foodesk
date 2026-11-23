@@ -63,28 +63,45 @@ function permittedPath(path: string, user: User): string {
   return routeFor(page)
 }
 
-function loginDestination(path: string): string {
-  const normalized = normalizePath(path)
-  const destination =
-    normalized === '/' || normalized === '/login'
-      ? '/reservations'
-      : normalized
+const LOGIN_REDIRECT_KEY = 'foodesk:login-redirect'
 
-  return `/login?next=${encodeURIComponent(destination)}`
+const ALLOWED_DESTINATIONS = new Set([
+  '/reservations',
+  '/history',
+  '/reports',
+  '/catalog',
+  '/menus',
+  '/profile',
+])
+
+function validDestination(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+
+  const normalized = normalizePath(value)
+
+  return ALLOWED_DESTINATIONS.has(normalized)
+    ? normalized
+    : null
+}
+
+function saveDestination(path: string): void {
+  const destination = validDestination(path)
+
+  if (destination) {
+    sessionStorage.setItem(LOGIN_REDIRECT_KEY, destination)
+  }
 }
 
 function requestedDestination(fallback: string): string {
-  const next = new URLSearchParams(window.location.search).get('next')
+  return (
+    validDestination(sessionStorage.getItem(LOGIN_REDIRECT_KEY)) ??
+    validDestination(fallback) ??
+    '/reservations'
+  )
+}
 
-  if (
-    next &&
-    ['/reservations', '/history', '/reports', '/catalog', '/menus', '/profile']
-      .includes(normalizePath(next))
-  ) {
-    return normalizePath(next)
-  }
-
-  return fallback
+function clearDestination(): void {
+  sessionStorage.removeItem(LOGIN_REDIRECT_KEY)
 }
 
 export default function App() {
@@ -98,9 +115,12 @@ export default function App() {
 
   const [pendingPath, setPendingPath] = useState(() => {
     const path = normalizePath(location.pathname)
-    return path === '/' || path === '/login'
-      ? '/reservations'
-      : path
+
+    return (
+      (path !== '/login' && validDestination(path)) ||
+      validDestination(sessionStorage.getItem(LOGIN_REDIRECT_KEY)) ||
+      '/reservations'
+    )
   })
 
   useEffect(() => {
@@ -143,7 +163,13 @@ export default function App() {
     function handleSessionExpired() {
       const path = normalizePath(window.location.pathname)
 
-      setPendingPath(path === '/login' ? '/reservations' : path)
+      const destination =
+        path === '/login'
+          ? requestedDestination('/reservations')
+          : validDestination(path) ?? '/reservations'
+
+      saveDestination(destination)
+      setPendingPath(destination)
       setLoginError('نشست شما منقضی شده است. دوباره وارد شوید.')
       setUser(null)
     }
@@ -155,6 +181,44 @@ export default function App() {
     }
   }, [])
 
+  useEffect(() => {
+    if (
+      booting ||
+      user ||
+      normalizePath(location.pathname) !== '/login'
+    ) {
+      return
+    }
+
+    const state = location.state as { from?: unknown } | null
+
+    const legacyNext =
+      new URLSearchParams(location.search).get('next')
+
+    const destination =
+      validDestination(state?.from) ??
+      validDestination(legacyNext)
+
+    if (destination) {
+      saveDestination(destination)
+      setPendingPath(destination)
+    }
+
+    if (location.search) {
+      navigate('/login', {
+        replace: true,
+        state: location.state,
+      })
+    }
+  }, [
+    booting,
+    user,
+    location.pathname,
+    location.search,
+    location.state,
+    navigate,
+  ])
+
   async function handleLogin(username: string, password: string) {
     setLoginError('')
 
@@ -163,14 +227,14 @@ export default function App() {
       setUser(session)
 
       if (session.must_change_password) {
-        navigate(loginDestination(requestedDestination(pendingPath)), {
-          replace: true,
-        })
         return
       }
 
+      const destination = requestedDestination(pendingPath)
+      clearDestination()
+
       navigate(
-        permittedPath(requestedDestination(pendingPath), session),
+        permittedPath(destination, session),
         { replace: true }
       )
     } catch (error) {
@@ -179,10 +243,13 @@ export default function App() {
   }
 
   async function handlePasswordChanged(session: User) {
+    const destination = requestedDestination(pendingPath)
+
     setUser(session)
+    clearDestination()
 
     navigate(
-      permittedPath(requestedDestination(pendingPath), session),
+      permittedPath(destination, session),
       { replace: true }
     )
   }
@@ -202,10 +269,11 @@ export default function App() {
     const path = normalizePath(location.pathname)
     const destination = path === '/login' ? pendingPath : path
 
+    saveDestination(destination)
     setPendingPath(destination)
     setUser(null)
     setLoginError('')
-    navigate(loginDestination(destination), { replace: true })
+    navigate('/login', { replace: true })
   }
 
   if (booting) {
@@ -223,7 +291,13 @@ export default function App() {
     const path = normalizePath(location.pathname)
 
     if (path !== '/login') {
-      return <Navigate to={loginDestination(path)} replace />
+      return (
+        <Navigate
+          to="/login"
+          replace
+          state={{ from: path }}
+        />
+      )
     }
 
     return (
