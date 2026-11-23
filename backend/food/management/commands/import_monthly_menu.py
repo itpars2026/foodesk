@@ -18,7 +18,9 @@ class Command(BaseCommand):
 
     def handle(self, *args: Any, **options: Any) -> None:
         try:
-            counts = import_monthly_menu(options['workbook'], category_slug=options['category'], dry_run=options['dry_run'])
+            counts = import_monthly_menu(
+                options['workbook'], category_slug=options['category'], dry_run=options['dry_run']
+            )
         except MenuWorkbookValidationError as exc:
             raise CommandError(str(exc)) from exc
 

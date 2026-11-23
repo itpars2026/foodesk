@@ -3,7 +3,7 @@ from django.test import TestCase
 
 from datetime import date
 
-from food.models import MenuCategory, Drink, Food, Menu, MenuStatus, Side
+from food.models import Drink, Food, Menu, MenuCategory, MenuStatus, Side
 
 
 class FoodModelTests(TestCase):

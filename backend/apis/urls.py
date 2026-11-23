@@ -1,7 +1,15 @@
 from rest_framework.routers import DefaultRouter
 
 from core.views import AuthViewSet, ConfigViewSet, EmployeeViewSet, HealthViewSet
-from food.views import DailyReportViewSet, DrinkViewSet, FoodViewSet, MenuCategoryViewSet, MenuViewSet, ReservationViewSet, SideViewSet
+from food.views import (
+    DailyReportViewSet,
+    DrinkViewSet,
+    FoodViewSet,
+    MenuCategoryViewSet,
+    MenuViewSet,
+    ReservationViewSet,
+    SideViewSet,
+)
 
 router = DefaultRouter(trailing_slash=False)
 router.register('health', HealthViewSet, basename='health')

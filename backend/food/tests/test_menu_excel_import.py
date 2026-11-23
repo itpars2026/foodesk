@@ -8,7 +8,7 @@ import tempfile
 
 from openpyxl import Workbook
 
-from food.models import MenuCategory, Food, Menu
+from food.models import Food, Menu, MenuCategory
 
 
 def _save_menu_workbook(path, *, rows):
@@ -49,7 +49,9 @@ class MonthlyMenuExcelImportTests(TestCase):
         path = self.tmp_path / 'monthly-menu.xlsx'
         _save_menu_workbook(path, rows=[['2099-01-02', 'Ghormeh sabzi', 1_200_000, 100_000, 200_000]])
         food = Food.objects.create(name='Ghormeh sabzi', price=1_000_000, container_price=100_000)
-        old_menu = Menu.objects.create(category=MenuCategory.objects.get(slug='iranian'), date=date(2098, 12, 2), food=food, food_price=1_050_000)
+        old_menu = Menu.objects.create(
+            category=MenuCategory.objects.get(slug='iranian'), date=date(2098, 12, 2), food=food, food_price=1_050_000
+        )
 
         call_command('import_monthly_menu', path, category='iranian')
         call_command('import_monthly_menu', path, category='iranian')
@@ -78,7 +80,9 @@ class MonthlyMenuExcelImportTests(TestCase):
         path = self.tmp_path / 'monthly-menu.xlsx'
         _save_menu_workbook(path, rows=[['2099-01-02', 'Ghormeh sabzi', 1_200_000, 100_000, 200_000]])
         food = Food.objects.create(name='Ghormeh sabzi', price=1_000_000, container_price=100_000)
-        existing = Menu.objects.create(category=MenuCategory.objects.get(slug='iranian'), date=date(2099, 1, 2), food=food, food_price=1_500_000)
+        existing = Menu.objects.create(
+            category=MenuCategory.objects.get(slug='iranian'), date=date(2099, 1, 2), food=food, food_price=1_500_000
+        )
 
         with self.assertRaisesRegex(CommandError, 'different food or price'):
             call_command('import_monthly_menu', path, category='iranian')

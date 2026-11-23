@@ -1,10 +1,11 @@
 """Daily reservation workbook: detail, procurement and building delivery."""
 
+from django.db.models import Prefetch
+from django.http import HttpResponse
+
 from collections import defaultdict
 from io import BytesIO
 
-from django.db.models import Prefetch
-from django.http import HttpResponse
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
@@ -98,16 +99,18 @@ def export_daily_excel(start_date, end_date):
         department = profile.department.number if profile and profile.department_id else ''
         for item in reservation.export_current_items:
             building = item.building_number_snapshot or (item.building.number if item.building_id else '')
-            records.append({
-                'date': reservation.menu.date,
-                'building': str(building),
-                'personnel': str(personnel),
-                'department': str(department),
-                'food': f'{reservation.menu.food.name} ({reservation.menu.category.name})',
-                'quantity': item.food_quantity,
-                'sides': quantities(item, 'side'),
-                'drinks': quantities(item, 'drink'),
-            })
+            records.append(
+                {
+                    'date': reservation.menu.date,
+                    'building': str(building),
+                    'personnel': str(personnel),
+                    'department': str(department),
+                    'food': f'{reservation.menu.food.name} ({reservation.menu.category.name})',
+                    'quantity': item.food_quantity,
+                    'sides': quantities(item, 'side'),
+                    'drinks': quantities(item, 'drink'),
+                }
+            )
     records.sort(key=lambda r: (r['date'], key_sort(r['building']), key_sort(r['personnel']), r['food']))
 
     workbook = Workbook()
@@ -117,17 +120,31 @@ def export_daily_excel(start_date, end_date):
     delivery = workbook.create_sheet('تحویل ساختمان‌ها')
 
     # Product-name columns contain quantities only, not numbered slots.
-    details.append([
-        'روز شمسی', 'شماره ساختمان', 'کد پرسنلی', 'شماره دپارتمان',
-        'نام غذا', 'تعداد غذا', *map(safe_label, sides), *map(safe_label, drinks),
-    ])
+    details.append(
+        [
+            'روز شمسی',
+            'شماره ساختمان',
+            'کد پرسنلی',
+            'شماره دپارتمان',
+            'نام غذا',
+            'تعداد غذا',
+            *map(safe_label, sides),
+            *map(safe_label, drinks),
+        ]
+    )
     for r in records:
-        details.append([
-            format_jalali_date(r['date']), r['building'], r['personnel'], r['department'],
-            safe_label(r['food']), r['quantity'],
-            *(r['sides'].get(name, 0) for name in sides),
-            *(r['drinks'].get(name, 0) for name in drinks),
-        ])
+        details.append(
+            [
+                format_jalali_date(r['date']),
+                r['building'],
+                r['personnel'],
+                r['department'],
+                safe_label(r['food']),
+                r['quantity'],
+                *(r['sides'].get(name, 0) for name in sides),
+                *(r['drinks'].get(name, 0) for name in drinks),
+            ]
+        )
 
     # One row per service date and food, across all buildings.
     order_counts = {}
@@ -135,7 +152,7 @@ def export_daily_excel(start_date, end_date):
     for r in records:
         order_key = (r['date'], r['food'])
         delivery_key = (r['building'][:2], r['date'], r['food'])
-        
+
         for target, key in ((order_counts, order_key), (delivery_counts, delivery_key)):
             if key not in target:
                 target[key] = {'food': 0, 'sides': defaultdict(int), 'drinks': defaultdict(int)}
@@ -147,19 +164,34 @@ def export_daily_excel(start_date, end_date):
 
     orders.append(['تاریخ', 'روز', 'نوع غذا', 'خروجی سفارش غذا', *map(safe_label, sides), *map(safe_label, drinks)])
     for (day, food), totals in sorted(order_counts.items()):
-        orders.append([
-            format_jalali_date(day), PERSIAN_WEEKDAYS[day.weekday()], safe_label(food), totals['food'],
-            *(totals['sides'].get(name, 0) for name in sides),
-            *(totals['drinks'].get(name, 0) for name in drinks),
-        ])
+        orders.append(
+            [
+                format_jalali_date(day),
+                PERSIAN_WEEKDAYS[day.weekday()],
+                safe_label(food),
+                totals['food'],
+                *(totals['sides'].get(name, 0) for name in sides),
+                *(totals['drinks'].get(name, 0) for name in drinks),
+            ]
+        )
 
-    delivery.append(['ساختمان', 'تاریخ', 'روز', 'نوع غذا', 'تعداد غذا', *map(safe_label, sides), *map(safe_label, drinks)])
-    for (building, day, food), totals in sorted(delivery_counts.items(), key=lambda item: (key_sort(item[0][0]), item[0][1], item[0][2])):
-        delivery.append([
-            building, format_jalali_date(day), PERSIAN_WEEKDAYS[day.weekday()], safe_label(food), totals['food'],
-            *(totals['sides'].get(name, 0) for name in sides),
-            *(totals['drinks'].get(name, 0) for name in drinks),
-        ])
+    delivery.append(
+        ['ساختمان', 'تاریخ', 'روز', 'نوع غذا', 'تعداد غذا', *map(safe_label, sides), *map(safe_label, drinks)]
+    )
+    for (building, day, food), totals in sorted(
+        delivery_counts.items(), key=lambda item: (key_sort(item[0][0]), item[0][1], item[0][2])
+    ):
+        delivery.append(
+            [
+                building,
+                format_jalali_date(day),
+                PERSIAN_WEEKDAYS[day.weekday()],
+                safe_label(food),
+                totals['food'],
+                *(totals['sides'].get(name, 0) for name in sides),
+                *(totals['drinks'].get(name, 0) for name in drinks),
+            ]
+        )
 
     format_sheet(details, text_columns=(1, 2, 3, 4))
     format_sheet(orders, text_columns=(1,))

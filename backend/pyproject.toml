@@ -59,6 +59,8 @@ fixable = ["ALL"]
 unfixable = []
 
 [tool.ruff.lint.per-file-ignores]
+"food/daily_excel.py" = ["RUF001"]
+"food/tests/test_management_reports.py" = ["RUF001"]
 "**/tests/**/*.py" = ["S101", "S106"]
 "**/tests.py" = ["S106"]
 "**/__init__.py" = ["F401"]

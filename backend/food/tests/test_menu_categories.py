@@ -1,7 +1,7 @@
-from datetime import date
-
 from django.db import IntegrityError, transaction
 from django.test import TestCase
+
+from datetime import date
 
 from food.models import Food, Menu, MenuCategory
 

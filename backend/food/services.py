@@ -195,7 +195,9 @@ class ReservationService:
             if menu.status != MenuStatus.AVAILABLE:
                 raise ValidationError({'menu': 'این منو برای رزرو در دسترس نیست.'})
             if Reservation.objects.filter(user=user, menu=menu).exists():
-                raise ValidationError({'menu': f'برای منوی {menu.category.name} در تاریخ {menu.date} قبلاً رزرو ثبت شده است.'})
+                raise ValidationError(
+                    {'menu': f'برای منوی {menu.category.name} در تاریخ {menu.date} قبلاً رزرو ثبت شده است.'}
+                )
             building = validate_reservation_building(row.get('building'))
             revision_data = {
                 **row,

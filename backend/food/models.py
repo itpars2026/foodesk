@@ -103,7 +103,9 @@ class Menu(TimestampedModel):
     )
 
     class Meta:
-        constraints: ClassVar[list] = [models.UniqueConstraint(fields=('date', 'category'), name='unique_menu_per_date_category')]
+        constraints: ClassVar[list] = [
+            models.UniqueConstraint(fields=('date', 'category'), name='unique_menu_per_date_category')
+        ]
 
     def __str__(self) -> str:
         return f'{self.date} [{self.category}]: {self.food}'

@@ -11,10 +11,10 @@ from unittest.mock import patch
 import jdatetime
 
 from food.models import (
-    MenuCategory,
     Drink,
     Food,
     Menu,
+    MenuCategory,
     Reservation,
     ReservationDrinkItem,
     ReservationItem,
@@ -70,7 +70,8 @@ class WalletTests(TestCase):
         price=100000,
         quantity=1,
     ):
-        menu = Menu.objects.create(category=MenuCategory.objects.get(slug='iranian'),
+        menu = Menu.objects.create(
+            category=MenuCategory.objects.get(slug='iranian'),
             date=gregorian(year, month, day),
             food=self.food,
         )

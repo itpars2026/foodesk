@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from core.models import Building, Department
 from core.services import create_employee
-from food.models import MenuCategory, Drink, Food, Menu, Reservation, Side
+from food.models import Drink, Food, Menu, MenuCategory, Reservation, Side
 
 
 class ReservationAPITests(TestCase):
@@ -28,7 +28,8 @@ class ReservationAPITests(TestCase):
             price=1_000_000,
             container_price=100_000,
         )
-        cls.menu = Menu.objects.create(category=MenuCategory.objects.get(slug='iranian'),
+        cls.menu = Menu.objects.create(
+            category=MenuCategory.objects.get(slug='iranian'),
             date=date(2099, 1, 2),
             food=cls.food,
         )
@@ -53,10 +54,12 @@ class ReservationAPITests(TestCase):
         )
         response = self.client.post(
             reverse('reservation-list'),
-            {'reservations': [
-                {'menu': self.menu.pk, 'building': self.building.pk},
-                {'menu': foreign_menu.pk, 'building': self.building.pk},
-            ]},
+            {
+                'reservations': [
+                    {'menu': self.menu.pk, 'building': self.building.pk},
+                    {'menu': foreign_menu.pk, 'building': self.building.pk},
+                ]
+            },
             content_type='application/json',
         )
         self.assertEqual(response.status_code, 201, response.content)
@@ -681,7 +684,8 @@ class ReservationAPITests(TestCase):
         self.assertEqual(cancelled_item.building_number_snapshot, '07')
 
     def test_employee_cannot_reserve_past_menu_or_reserve_twice(self):
-        past_menu = Menu.objects.create(category=MenuCategory.objects.get(slug='iranian'),
+        past_menu = Menu.objects.create(
+            category=MenuCategory.objects.get(slug='iranian'),
             date='2000-01-02',
             food=self.food,
         )
@@ -1014,7 +1018,8 @@ class ReservationAPITests(TestCase):
         )
 
     def test_reservation_batch_rolls_back_when_one_day_is_invalid(self):
-        past_menu = Menu.objects.create(category=MenuCategory.objects.get(slug='iranian'),
+        past_menu = Menu.objects.create(
+            category=MenuCategory.objects.get(slug='iranian'),
             date='2000-01-02',
             food=self.food,
         )
@@ -1067,7 +1072,8 @@ class ReservationAPITests(TestCase):
             price=100_000,
             container_price=10_000,
         )
-        menu = Menu.objects.create(category=MenuCategory.objects.get(slug='iranian'),
+        menu = Menu.objects.create(
+            category=MenuCategory.objects.get(slug='iranian'),
             date='2099-01-03',
             food=food,
         )

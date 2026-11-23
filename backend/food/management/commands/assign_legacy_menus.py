@@ -1,6 +1,8 @@
 """Assign currently uncategorized legacy menus to one existing category."""
+
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+
 from food.models import Menu, MenuCategory
 
 
@@ -22,13 +24,16 @@ class Command(BaseCommand):
         count = uncategorized.count()
         # Block reassignment when a categorized menu already exists on a matching date.
         conflicts = list(
-            uncategorized.filter(date__in=Menu.objects.filter(category=category).values('date'))
-            .values_list('date', flat=True)[:5]
+            uncategorized.filter(date__in=Menu.objects.filter(category=category).values('date')).values_list(
+                'date', flat=True
+            )[:5]
         )
         if conflicts:
             raise CommandError(f'Date conflicts with category {slug}: {conflicts}')
         if not options['apply']:
-            self.stdout.write(f'DRY RUN: {count} uncategorized menu(s) would be assigned to {slug}. Add --apply to execute.')
+            self.stdout.write(
+                f'DRY RUN: {count} uncategorized menu(s) would be assigned to {slug}. Add --apply to execute.'
+            )
             return
         updated = uncategorized.update(category=category)
         self.stdout.write(self.style.SUCCESS(f'Assigned {updated} menu(s) to {slug}.'))

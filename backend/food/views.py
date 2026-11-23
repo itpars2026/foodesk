@@ -6,11 +6,9 @@ from rest_framework.response import Response
 
 from django.conf import settings
 from django.db.models import Prefetch
-from django.http import HttpResponse
 from django.utils.dateparse import parse_date
 
 from typing import ClassVar
-
 
 from core.permissions import HasChangedInitialPassword, IsCatalogReaderOrManager, IsHRFoodViewerOrSuperAdmin
 from food.daily_excel import export_daily_excel

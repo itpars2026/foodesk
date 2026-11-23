@@ -8,10 +8,10 @@ from core.models import Building, CustomUser, Department
 from core.roles import HR_FOOD_ROLE, VIEWER_ROLE
 from core.services import create_employee
 from food.models import (
-    MenuCategory,
     Drink,
     Food,
     Menu,
+    MenuCategory,
     Reservation,
     ReservationDrinkItem,
     ReservationItem,
@@ -74,7 +74,9 @@ class ManagementReportTests(TestCase):
             price=1_000_000,
             container_price=100_000,
         )
-        menu = Menu.objects.create(category=MenuCategory.objects.get(slug='iranian'), date=date(2099, 1, 2), food=menu_food)
+        menu = Menu.objects.create(
+            category=MenuCategory.objects.get(slug='iranian'), date=date(2099, 1, 2), food=menu_food
+        )
 
         current_reservation = Reservation.objects.create(
             user=employee,
@@ -343,11 +345,13 @@ class ManagementReportTests(TestCase):
             price=1_000_000,
             container_price=100_000,
         )
-        first_day = Menu.objects.create(category=MenuCategory.objects.get(slug='iranian'),
+        first_day = Menu.objects.create(
+            category=MenuCategory.objects.get(slug='iranian'),
             date=date(2099, 3, 1),
             food=food,
         )
-        second_day = Menu.objects.create(category=MenuCategory.objects.get(slug='iranian'),
+        second_day = Menu.objects.create(
+            category=MenuCategory.objects.get(slug='iranian'),
             date=date(2099, 3, 2),
             food=food,
         )
@@ -512,8 +516,16 @@ class ManagementReportTests(TestCase):
         self.assertEqual(
             headers,
             (
-                'روز شمسی', 'شماره ساختمان', 'کد پرسنلی', 'شماره دپارتمان',
-                'نام غذا', 'تعداد غذا', 'Side A', 'Side B', 'Drink A', 'Drink B',
+                'روز شمسی',
+                'شماره ساختمان',
+                'کد پرسنلی',
+                'شماره دپارتمان',
+                'نام غذا',
+                'تعداد غذا',
+                'Side A',
+                'Side B',
+                'Drink A',
+                'Drink B',
             ),
         )
         self.assertEqual(workbook.sheetnames, ['جزئیات رزرو', 'سفارش', 'تحویل ساختمان‌ها'])
@@ -532,11 +544,11 @@ class ManagementReportTests(TestCase):
                 '@',
             )
 
-
         workbook.close()
 
     def test_excel_delivery_groups_two_character_building_prefix_and_keeps_unordered_catalog(self):
         from io import BytesIO
+
         from openpyxl import load_workbook
 
         viewer = create_user_in_group('viewer-prefix', VIEWER_ROLE)
@@ -547,18 +559,23 @@ class ManagementReportTests(TestCase):
 
         for idx, building in enumerate(('2101', '2102', '2301')):
             employee = create_employee(
-                national_id='0012345678', personnel_number=f'prefix-{idx}',
-                building_number='07', department_number='003',
+                national_id='0012345678',
+                personnel_number=f'prefix-{idx}',
+                building_number='07',
+                department_number='003',
             )
             reservation = Reservation.objects.create(user=employee, menu=day)
             ReservationItem.objects.create(
-                reservation=reservation, building_number_snapshot=building,
-                food_price=110_000, food_quantity=idx + 1,
+                reservation=reservation,
+                building_number_snapshot=building,
+                food_price=110_000,
+                food_quantity=idx + 1,
             )
 
         self.client.force_login(viewer)
         response = self.client.get(
-            reverse('daily-report-export'), {'from': '2099-05-01', 'to': '2099-05-01'},
+            reverse('daily-report-export'),
+            {'from': '2099-05-01', 'to': '2099-05-01'},
         )
         self.assertEqual(response.status_code, 200, response.content)
         workbook = load_workbook(BytesIO(response.content))
@@ -598,11 +615,13 @@ class ManagementReportTests(TestCase):
             container_price=10_000,
         )
 
-        day_1 = Menu.objects.create(category=MenuCategory.objects.get(slug='iranian'),
+        day_1 = Menu.objects.create(
+            category=MenuCategory.objects.get(slug='iranian'),
             date=date(2099, 4, 1),
             food=food,
         )
-        day_2 = Menu.objects.create(category=MenuCategory.objects.get(slug='iranian'),
+        day_2 = Menu.objects.create(
+            category=MenuCategory.objects.get(slug='iranian'),
             date=date(2099, 4, 2),
             food=food,
         )
