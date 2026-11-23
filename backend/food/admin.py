@@ -3,7 +3,8 @@ from django.contrib import admin
 from unfold.admin import ModelAdmin
 from unfold.contrib.filters.admin import AutocompleteSelectFilter
 
-from food.forms import DrinkAdminForm, FoodAdminForm, SideAdminForm
+from food.forms import DrinkAdminForm, FoodAdminForm, HolidayAdminForm, SideAdminForm
+from food.jalali import format_jalali_date
 from food.models import Drink, Food, Holiday, Menu, MenuCategory, Reservation, Side
 
 
@@ -88,16 +89,22 @@ class ReservationAdmin(ModelAdmin):
 
 @admin.register(Holiday)
 class HolidayAdmin(ModelAdmin):
+    form = HolidayAdminForm
+
     list_display = (
-        'date',
+        'jalali_date',
         'description',
         'datetime_created',
     )
 
     search_fields = ('description',)
-    list_filter = ('date',)
     ordering = ('date',)
+
     readonly_fields = (
         'datetime_created',
         'datetime_modified',
     )
+
+    @admin.display(description='تاریخ تعطیلی', ordering='date')
+    def jalali_date(self, obj):
+        return format_jalali_date(obj.date)
