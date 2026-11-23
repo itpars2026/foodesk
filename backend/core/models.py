@@ -4,6 +4,7 @@ from django.db import models
 
 from typing import ClassVar
 
+from core.base_models import TimeStampedModel
 from core.validators import validate_brand_image
 
 
@@ -13,7 +14,7 @@ class CustomUser(AbstractUser):
     must_change_password = models.BooleanField(default=False)
 
 
-class Building(models.Model):
+class Building(TimeStampedModel):
     number = models.CharField(max_length=5, unique=True)
     is_active = models.BooleanField(default=True)
 
@@ -24,7 +25,7 @@ class Building(models.Model):
         return self.number
 
 
-class Department(models.Model):
+class Department(TimeStampedModel):
     number = models.CharField(max_length=3, unique=True)
     is_active = models.BooleanField(default=True)
 
@@ -51,7 +52,7 @@ class Profile(models.Model):
         return self.personnel_number
 
 
-class SiteSettings(models.Model):
+class SiteSettings(TimeStampedModel):
     """Single database-backed configuration for public site branding."""
 
     site_name = models.CharField(max_length=100, default='فودسک')

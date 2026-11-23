@@ -4,7 +4,7 @@ from unfold.admin import ModelAdmin
 from unfold.contrib.filters.admin import AutocompleteSelectFilter
 
 from food.forms import DrinkAdminForm, FoodAdminForm, SideAdminForm
-from food.models import Drink, Food, Menu, MenuCategory, Reservation, Side
+from food.models import Drink, Food, Holiday, Menu, MenuCategory, Reservation, Side
 
 
 @admin.register(Food)
@@ -84,3 +84,20 @@ class ReservationAdmin(ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+@admin.register(Holiday)
+class HolidayAdmin(ModelAdmin):
+    list_display = (
+        'date',
+        'description',
+        'datetime_created',
+    )
+
+    search_fields = ('description',)
+    list_filter = ('date',)
+    ordering = ('date',)
+    readonly_fields = (
+        'datetime_created',
+        'datetime_modified',
+    )

@@ -4,18 +4,12 @@ from django.db.models import Q
 
 from typing import ClassVar
 
+from core.base_models import TimeStampedModel
+
 from .mixins import CatalogImageMixin
 
 
-class TimestampedModel(models.Model):
-    datetime_created = models.DateTimeField(auto_now_add=True)
-    datetime_modified = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        abstract = True
-
-
-class Food(CatalogImageMixin, TimestampedModel):
+class Food(CatalogImageMixin, TimeStampedModel):
     DEFAULT_IMAGE = 'images/defaults/default-food.webp'
 
     name = models.CharField(max_length=255)
@@ -39,7 +33,7 @@ class Food(CatalogImageMixin, TimestampedModel):
         return self.name
 
 
-class Side(CatalogImageMixin, TimestampedModel):
+class Side(CatalogImageMixin, TimeStampedModel):
     DEFAULT_IMAGE = 'images/defaults/default-side.webp'
 
     name = models.CharField(max_length=255)
@@ -53,7 +47,7 @@ class Side(CatalogImageMixin, TimestampedModel):
         return self.name
 
 
-class Drink(CatalogImageMixin, TimestampedModel):
+class Drink(CatalogImageMixin, TimeStampedModel):
     DEFAULT_IMAGE = 'images/defaults/default-drink.webp'
 
     name = models.CharField(max_length=255)
@@ -73,7 +67,7 @@ class MenuStatus(models.TextChoices):
     CANCELLED = 'can', 'Cancelled'
 
 
-class MenuCategory(TimestampedModel):
+class MenuCategory(TimeStampedModel):
     name = models.CharField(max_length=100)
     slug = models.SlugField(max_length=100, unique=True)
     sort_order = models.PositiveIntegerField(default=0)
@@ -87,7 +81,7 @@ class MenuCategory(TimestampedModel):
         return self.name
 
 
-class Menu(TimestampedModel):
+class Menu(TimeStampedModel):
     category = models.ForeignKey(MenuCategory, on_delete=models.PROTECT, related_name='menus')
     date = models.DateField()
     food = models.ForeignKey(Food, on_delete=models.PROTECT, related_name='menus')
@@ -116,7 +110,7 @@ class Menu(TimestampedModel):
         super().save(*args, **kwargs)
 
 
-class Reservation(TimestampedModel):
+class Reservation(TimeStampedModel):
     class Status(models.TextChoices):
         RESERVED = 'res', 'Reserved'
         CANCELLED = 'can', 'Cancelled'
@@ -146,7 +140,7 @@ class Reservation(TimestampedModel):
         return f'{self.user} - {self.menu.date}'
 
 
-class ReservationItem(TimestampedModel):
+class ReservationItem(TimeStampedModel):
     reservation = models.ForeignKey(Reservation, on_delete=models.PROTECT, related_name='items')
     building = models.ForeignKey(
         'core.Building',
@@ -204,7 +198,7 @@ class ReservationItem(TimestampedModel):
         return f'{self.reservation} (revision {self.pk})'
 
 
-class ReservationSideItem(TimestampedModel):
+class ReservationSideItem(TimeStampedModel):
     reservation_item = models.ForeignKey(ReservationItem, on_delete=models.PROTECT, related_name='side_items')
     side = models.ForeignKey(Side, on_delete=models.PROTECT, related_name='reservation_side_items')
 
@@ -228,7 +222,7 @@ class ReservationSideItem(TimestampedModel):
         return self.quantity * self.unit_price
 
 
-class ReservationDrinkItem(TimestampedModel):
+class ReservationDrinkItem(TimeStampedModel):
     reservation_item = models.ForeignKey(ReservationItem, on_delete=models.PROTECT, related_name='drink_items')
     drink = models.ForeignKey(Drink, on_delete=models.PROTECT, related_name='reservation_drink_items')
 
@@ -250,3 +244,16 @@ class ReservationDrinkItem(TimestampedModel):
     @property
     def total_price(self) -> int:
         return self.quantity * self.unit_price
+
+
+class Holiday(TimeStampedModel):
+    date = models.DateField(unique=True)
+    description = models.CharField(max_length=255)
+
+    class Meta:
+        ordering = ('date',)
+        verbose_name = 'Holiday'
+        verbose_name_plural = 'Holidays'
+
+    def __str__(self) -> str:
+        return f'{self.date} - {self.description}'

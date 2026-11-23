@@ -13,6 +13,7 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from core.models import Building
 from food.models import (
     Drink,
+    Holiday,
     Menu,
     MenuStatus,
     Reservation,
@@ -41,9 +42,21 @@ def _local_now():
     return timezone.localtime(timezone.now(), timezone.get_default_timezone())
 
 
+def is_working_day(day) -> bool:
+    # Friday = 4 in Python's weekday numbering.
+    if day.weekday() == 4:
+        return False
+    return not Holiday.objects.filter(date=day).exists()
+
+
 def reservation_deadline(menu: Menu, cutoff_hour: int) -> datetime:
+    deadline_date = menu.date - timedelta(days=1)
+
+    while not is_working_day(deadline_date):
+        deadline_date -= timedelta(days=1)
+
     return timezone.make_aware(
-        datetime.combine(menu.date - timedelta(days=1), time(hour=cutoff_hour)),
+        datetime.combine(deadline_date, time(hour=cutoff_hour)),
         timezone.get_default_timezone(),
     )
 
@@ -59,7 +72,7 @@ def validate_reservation_window(menu: Menu, cutoff_hour: int) -> None:
     if menu.date < now.date():
         raise ValidationError({'menu': 'رزرو برای روزهای گذشته امکان‌پذیر نیست.'})
     if now >= reservation_deadline(menu, cutoff_hour):
-        raise ValidationError({'menu': f'مهلت رزرو تا ساعت {cutoff_hour:02d}:00 روز قبل است.'})
+        raise ValidationError({'menu': 'مهلت رزرو این روز به پایان رسیده است.'})
 
 
 class ReservationPricing:
@@ -212,7 +225,6 @@ class ReservationService:
     @classmethod
     @transaction.atomic
     def revise(cls, reservation: Reservation, data: dict, *, cancelled: bool = False, cutoff_hour: int) -> Reservation:
-
         reservation = Reservation.objects.select_for_update().select_related('menu__food').get(pk=reservation.pk)
         validate_reservation_window(reservation.menu, cutoff_hour)
         previous = reservation.items.filter(is_current=True).first()
@@ -301,7 +313,6 @@ def create_reservations(user, rows: list[dict], *, cutoff_hour: int) -> list[Res
 def revise_reservation(
     reservation: Reservation, data: dict, *, cancelled: bool = False, cutoff_hour: int
 ) -> Reservation:
-
     return ReservationService.revise(
         reservation,
         data,
