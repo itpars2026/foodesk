@@ -8,3 +8,24 @@ htmlcov
 staticfiles
 .git
 
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+
+# Local backups and temporary files
+Dockerfile.backup
+Dockerfile.optimized-test
+Dockerfile.pre-fix
+uv.lock.pre-pypi
+*.bak
+*.backup
+*.partial
+
+# Local tooling
+.mypy_cache/
+.uv-cache/
