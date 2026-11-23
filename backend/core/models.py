@@ -1,6 +1,10 @@
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import F, Q
+from django.utils import timezone
 
 from typing import ClassVar
 
@@ -94,3 +98,96 @@ class SiteSettings(TimeStampedModel):
 
     def __str__(self):
         return self.site_name
+
+
+class Notification(TimeStampedModel):
+    class NotificationType(models.TextChoices):
+        INFO = 'info', 'اطلاع‌رسانی'
+        REMINDER = 'reminder', 'یادآوری'
+        WARNING = 'warning', 'هشدار'
+
+    class NotificationSource(models.TextChoices):
+        MANUAL = 'manual', 'دستی'
+        SYSTEM = 'system', 'سیستمی'
+
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+
+    notification_type = models.CharField(max_length=8, choices=NotificationType.choices, default=NotificationType.INFO)
+
+    source = models.CharField(max_length=6, choices=NotificationSource.choices, default=NotificationSource.MANUAL)
+
+    event_key = models.CharField(max_length=150, unique=True, null=True, blank=True)
+
+    is_active = models.BooleanField(default=False)
+
+    starts_at = models.DateTimeField(default=timezone.now)
+    expires_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ('-datetime_created',)
+        verbose_name = 'اعلان'
+        verbose_name_plural = 'اعلان‌ها'
+        indexes = [
+            models.Index(
+                fields=('is_active', 'starts_at'),
+            ),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    Q(expires_at__isnull=True)
+                    | Q(expires_at__gt=F('starts_at'))
+                ),
+                name='core_notification_valid_dates',
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.title
+
+
+class NotificationRole(TimeStampedModel):
+    notification = models.ForeignKey(Notification, on_delete=models.CASCADE, related_name='target_roles')
+
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='notification_roles')
+
+    class Meta:
+        verbose_name = 'نقش دریافت‌کننده اعلان'
+        verbose_name_plural = 'نقش‌های دریافت‌کننده اعلان'
+        constraints = [
+            models.UniqueConstraint(
+                fields=('notification', 'group'),
+                name='core_unique_notification_role',
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f'{self.notification.title} - {self.group.name}'
+
+
+class NotificationRecipient(TimeStampedModel):
+    notification = models.ForeignKey(Notification, on_delete=models.CASCADE, related_name='recipients')
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notifications')
+
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ('-datetime_created',)
+        verbose_name = 'دریافت‌کننده اعلان'
+        verbose_name_plural = 'دریافت‌کنندگان اعلان'
+        constraints = [
+            models.UniqueConstraint(
+                fields=('notification', 'user'),
+                name='core_unique_notification_recipient',
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=('user', 'read_at'),
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f'{self.user.username} - {self.notification.title}'
