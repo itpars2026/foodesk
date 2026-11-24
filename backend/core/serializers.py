@@ -3,7 +3,7 @@ from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.core.exceptions import ValidationError as DjangoValidationError
 
-from core.models import Building, CustomUser, Department, Profile
+from core.models import Building, CustomUser, Department, Profile, NotificationRecipient
 from core.services import create_employee, update_employee, update_profile_preferences
 from core.validators import validate_new_password
 
@@ -167,3 +167,30 @@ class ProfileSerializer(serializers.ModelSerializer):
             )
         except DjangoValidationError as exc:
             raise convert_validation_error(exc) from exc
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source='notification_id', read_only=True)
+    title = serializers.CharField(source='notification.title', read_only=True)
+
+    message = serializers.CharField(source='notification.message', read_only=True)
+    notification_type = serializers.CharField(source='notification.notification_type',read_only=True)
+
+    starts_at = serializers.DateTimeField(source='notification.starts_at', read_only=True)
+    is_read = serializers.SerializerMethodField()
+
+    class Meta:
+        model = NotificationRecipient
+        fields = (
+            'id',
+            'title',
+            'message',
+            'notification_type',
+            'starts_at',
+            'read_at',
+            'is_read',
+        )
+        read_only_fields = fields
+
+    def get_is_read(self, obj):
+        return obj.read_at is not None

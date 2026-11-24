@@ -5,13 +5,15 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from django.contrib.auth import login as auth_login, logout as auth_logout, update_session_auth_hash
+from django.db.models import Q
 from django.middleware.csrf import get_token
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 
 from typing import ClassVar
 
-from core.models import Building, CustomUser, Department, SiteSettings
+from core.models import Building, CustomUser, Department, SiteSettings, NotificationRecipient
 from core.permissions import HasChangedInitialPassword, IsHRFoodOrSuperAdmin
 from core.serializers import (
     ChangePasswordSerializer,
@@ -21,7 +23,9 @@ from core.serializers import (
     LoginSerializer,
     ProfileSerializer,
     SessionUserSerializer,
+    NotificationSerializer,
 )
+from core.paginations import NotificationPagination
 
 
 class HealthViewSet(viewsets.ViewSet):
@@ -202,3 +206,78 @@ class EmployeeViewSet(
         if self.action == 'partial_update':
             return EmployeeUpdateSerializer
         return EmployeeSerializer
+
+
+class NotificationViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
+    serializer_class = NotificationSerializer
+    pagination_class = NotificationPagination
+
+    lookup_field = 'notification_id'
+    lookup_url_kwarg = 'pk'
+
+    permission_classes = (
+        IsAuthenticated,
+        HasChangedInitialPassword,
+    )
+    http_method_names = ('get', 'post', 'head', 'options')
+
+    def get_queryset(self):
+        now = timezone.now()
+
+        return (
+            NotificationRecipient.objects
+            .filter(
+                user=self.request.user,
+                notification__is_active=True,
+                notification__starts_at__lte=now,
+            )
+            .filter(
+                Q(notification__expires_at__isnull=True)
+                | Q(notification__expires_at__gt=now)
+            )
+            .select_related('notification')
+            .order_by(
+                '-notification__starts_at',
+                '-notification_id',
+            )
+        )
+
+    @action(detail=False, methods=['get'], url_path='unread-count')
+    def unread_count(self, request):
+        count = self.get_queryset().filter(
+            read_at__isnull=True,
+        ).count()
+
+        return Response({'unread_count': count})
+
+    @action(detail=True, methods=['post'], url_path='read', url_name='read')
+    def mark_read(self, request, pk=None):
+        recipient = self.get_object()
+
+        if recipient.read_at is None:
+            recipient.read_at = timezone.now()
+            recipient.save(
+                update_fields=[
+                    'read_at',
+                    'datetime_modified',
+                ],
+            )
+
+        serializer = self.get_serializer(recipient)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['post'], url_path='read-all')
+    def read_all(self, request):
+        now = timezone.now()
+
+        count = self.get_queryset().filter(
+            read_at__isnull=True,
+        ).update(
+            read_at=now,
+            datetime_modified=now,
+        )
+
+        return Response({
+            'marked_read': count,
+            'unread_count': 0,
+        })
