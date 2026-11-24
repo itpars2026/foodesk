@@ -30,6 +30,7 @@ def provision_roles(sender, **kwargs) -> None:
         'core': HR_FOOD_CORE_PERMISSIONS,
         'food': HR_FOOD_FOOD_PERMISSIONS,
     }
+
     if sender.name not in permission_map:
         return
     groups = {name: Group.objects.get_or_create(name=name)[0] for name in ROLE_NAMES}
@@ -37,6 +38,7 @@ def provision_roles(sender, **kwargs) -> None:
         content_type__app_label=sender.name,
         codename__in=permission_map[sender.name],
     )
+
     groups[HR_FOOD_ROLE].permissions.add(*permissions)
     if sender.name == 'food':
         viewer_permissions = Permission.objects.filter(

@@ -156,3 +156,35 @@ def validate_notification_recipients(has_recipients: bool) -> None:
         return
 
     raise ValidationError('هیچ کاربر فعالی برای دریافت اعلان یافت نشد.')
+
+def validate_system_notification_payload(
+    *,
+    event_key: str,
+    title: str,
+    message: str,
+    send_to_all: bool,
+    group_names: tuple[str, ...],
+) -> None:
+
+    if not isinstance(event_key, str) or not event_key.strip():
+        raise ValidationError('کلید رویداد الزامی است.')
+
+    if len(event_key) > 150:
+        raise ValidationError('کلید رویداد بیش از حد طولانی است.')
+
+    if not isinstance(title, str) or not title.strip():
+        raise ValidationError('عنوان اعلان الزامی است.')
+
+    if len(title) > 200:
+        raise ValidationError('عنوان اعلان بیش از حد طولانی است.')
+
+    if not isinstance(message, str) or not message.strip():
+        raise ValidationError('متن اعلان الزامی است.')
+
+    if send_to_all:
+        return
+
+    if group_names:
+        return
+
+    raise ValidationError('برای اعلان غیرعمومی باید حداقل یک نقش انتخاب شود.')

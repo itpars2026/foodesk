@@ -70,3 +70,16 @@ def validate_catalog_image(uploaded_file) -> None:
 
     finally:
         uploaded_file.seek(original_position)
+
+def validate_holiday_id(holiday_id: int) -> None:
+    if isinstance(holiday_id, bool):
+        raise ValidationError('شناسه تعطیلی نامعتبر است.')
+
+    if not isinstance(holiday_id, int) or holiday_id <= 0:
+        raise ValidationError('شناسه تعطیلی نامعتبر است.')
+
+def validate_holiday_notification_payload(holiday_id: int, date_label: str) -> None:
+    validate_holiday_id(holiday_id)
+
+    if not isinstance(date_label, str) or not date_label.strip():
+        raise ValidationError('تاریخ تعطیلی الزامی است.')
