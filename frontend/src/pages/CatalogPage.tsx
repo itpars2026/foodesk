@@ -1,5 +1,6 @@
 import FoodPicker from '../components/ui/FoodPicker'
 import CatalogInventory from '../features/catalog/CatalogInventory'
+import NotificationManagement from '../features/notifications/NotificationManagement'
 import { RefreshCw } from 'lucide-react'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { FormEvent } from 'react'
@@ -193,7 +194,7 @@ export default function CatalogPage() {
   }
 
   return <section className="min-w-0" aria-labelledby="catalog-title">
-    <div className="mb-[25px] flex items-end justify-between gap-[18px] max-[680px]:mb-[18px] max-[680px]:items-start [&_h1]:m-0 [&_h1]:text-[clamp(26px,3vw,34px)] [&_h1]:leading-[1.35] [&_h1]:tracking-[-0.8px] max-[680px]:[&_h1]:text-[27px]"><div><p className="mt-0 mb-2 text-xs font-bold text-accent">ویژهٔ HR</p><h1 id="catalog-title">مدیریت منو</h1><p className="mt-[7px] mb-0 text-sm leading-[1.7] text-muted max-[680px]:max-w-[440px] max-[680px]:text-xs">غذاها و گزینه‌های جانبی را مدیریت و منوی روز را تعیین کن.</p></div><button aria-label="تازه‌سازی کاتالوگ" className={iconButtonClass} onClick={() => void loadCatalog()} type="button"><RefreshCw size={18} /></button></div>
+    <div className="mb-[25px] flex items-end justify-between gap-[18px] max-[680px]:mb-[18px] max-[680px]:items-start [&_h1]:m-0 [&_h1]:text-[clamp(26px,3vw,34px)] [&_h1]:leading-[1.35] [&_h1]:tracking-[-0.8px] max-[680px]:[&_h1]:text-[27px]"><div><p className="mt-0 mb-2 text-xs font-bold text-accent">ویژهٔ HR</p><h1 id="catalog-title">مدیریت منو و اعلان‌ها</h1><p className="mt-[7px] mb-0 text-sm leading-[1.7] text-muted max-[680px]:max-w-[440px] max-[680px]:text-xs">منوی روز، کاتالوگ غذاها و اعلان‌های سازمانی را مدیریت کن.</p></div><button aria-label="تازه‌سازی کاتالوگ" className={iconButtonClass} onClick={() => void loadCatalog()} type="button"><RefreshCw size={18} /></button></div>
     {editNotice && (
       <p
         role="status"
@@ -348,6 +349,7 @@ export default function CatalogPage() {
       />
         </div>
       </details>
+      <NotificationManagement />
     </div>}
   </section>
 }

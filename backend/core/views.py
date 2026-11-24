@@ -221,6 +221,19 @@ class NotificationViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     )
     http_method_names = ('get', 'post', 'head', 'options')
 
+    @action(detail=False, methods=['post'], url_path='manage')
+    def manage_create(self, request):
+        from core.notification_management import create_manual_notification
+
+        result = create_manual_notification(request.user, request.data)
+        return Response(result, status=201)
+
+    @action(detail=False, methods=['get'], url_path='manage/roles')
+    def manage_roles(self, request):
+        from core.notification_management import list_target_roles
+
+        return Response(list_target_roles(request.user))
+
     def get_queryset(self):
         now = timezone.now()
 

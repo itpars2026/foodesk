@@ -193,7 +193,7 @@ export default function MainShell({
 
   const items = [...navItems]
   if (canSeeReport(user)) items.push({ key: 'report', label: 'گزارش روزانه', icon: ChartNoAxesCombined })
-  if (isManager(user)) items.push({ key: 'catalog', label: 'مدیریت منو', icon: Utensils })
+  if (isManager(user)) items.push({ key: 'catalog', label: 'مدیریت منو و اعلان‌ها', icon: Utensils })
 
   return (
     <div className="min-h-svh" dir="rtl">
