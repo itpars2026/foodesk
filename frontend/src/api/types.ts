@@ -126,3 +126,29 @@ export type ProfileOptions = {
   buildings: ProfileOption[]
   departments: ProfileOption[]
 }
+
+export type NotificationItem = {
+  id: number
+  title: string
+  message: string
+  notification_type: 'info' | 'reminder' | 'warning'
+  starts_at: string
+  read_at: string | null
+  is_read: boolean
+}
+
+export type NotificationListResponse = {
+  count: number
+  next: string | null
+  previous: string | null
+  results: NotificationItem[]
+}
+
+export type NotificationUnreadCount = {
+  unread_count: number
+}
+
+export type NotificationReadAllResponse = {
+  marked_read: number
+  unread_count: number
+}

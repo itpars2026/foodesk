@@ -35,3 +35,26 @@ export function updateProfile(data: {
     body: JSON.stringify(data),
   })
 }
+
+import type {
+  NotificationItem,
+  NotificationListResponse,
+  NotificationUnreadCount,
+  NotificationReadAllResponse,
+} from './types'
+
+export const getNotifications = () =>
+  api<NotificationListResponse>('/notifications')
+
+export const getNotificationUnreadCount = () =>
+  api<NotificationUnreadCount>('/notifications/unread-count')
+
+export const markNotificationRead = (id: number) =>
+  api<NotificationItem>(`/notifications/${id}/read`, {
+    method: 'POST',
+  })
+
+export const markAllNotificationsRead = () =>
+  api<NotificationReadAllResponse>('/notifications/read-all', {
+    method: 'POST',
+  })

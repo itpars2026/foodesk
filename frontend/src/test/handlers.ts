@@ -1,6 +1,10 @@
 import { http, HttpResponse } from 'msw'
 
 export const handlers = [
+  http.get('*/api/v1/notifications/unread-count', () =>
+    HttpResponse.json({ unread_count: 0 })
+  ),
+
   http.get('*/api/v1/menu-categories', () =>
     HttpResponse.json([{ id: 1, name: 'ایرانی', slug: 'iranian', sort_order: 1, is_active: true }])
   ),

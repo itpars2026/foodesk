@@ -274,7 +274,7 @@ describe('Authentication and routing', () => {
       .toBeNull()
   })
 
-  it('cleans legacy next query and preserves destination', async () => {
+  it('ignores legacy next and redirects to the default page', async () => {
     server.use(
       http.post('*/api/v1/auth/login', () =>
         HttpResponse.json(employee)
@@ -286,19 +286,22 @@ describe('Authentication and routing', () => {
     await waitFor(() => {
       expect(window.location.pathname).toBe('/login')
       expect(window.location.search).toBe('')
-      expect(sessionStorage.getItem('foodesk:login-redirect'))
-        .toBe('/history')
     })
+
+    expect(
+      sessionStorage.getItem('foodesk:login-redirect'),
+    ).toBeNull()
 
     await fillLogin()
 
-    expect(
-      await screen.findByRole('heading', {
-        name: 'صفحه سوابق آزمایشی',
-      })
-    ).toBeInTheDocument()
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/reservations')
+    })
 
-    expect(window.location.pathname).toBe('/history')
+    expect(window.location.search).toBe('')
+    expect(
+      sessionStorage.getItem('foodesk:login-redirect'),
+    ).toBeNull()
   })
 
   it('returns to history after login and mandatory password change', async () => {

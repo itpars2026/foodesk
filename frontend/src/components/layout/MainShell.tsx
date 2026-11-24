@@ -19,6 +19,7 @@ import type { Page } from '../../app/navigation'
 import { canSeeReport, isManager } from '../../app/permissions'
 import { iconButtonClass } from '../ui/buttonStyles'
 import BrandMark from './BrandMark'
+import NotificationBell from '../notifications/NotificationBell'
 import { useBranding } from '../../app/branding'
 import {
   getCurrentTheme,
@@ -217,6 +218,7 @@ export default function MainShell({
             </span>
           </span>
         </div>
+        <NotificationBell />
         {themeToggle}
         <button aria-label="خروج از حساب" className={iconButtonClass} onClick={onLogout} type="button"><LogOut size={18} /></button>
       </header>
@@ -225,6 +227,7 @@ export default function MainShell({
           <div className="flex items-center gap-[7px]">{branding.site_name} <ChevronLeft aria-hidden="true" size={14} /> {branding.site_description}</div>
           <div className="flex items-center gap-3">
             <div>کد پرسنلی <strong className="ms-[5px] text-ink">{user.username}</strong></div>
+            <NotificationBell />
             {themeToggle}
           </div>
         </div>

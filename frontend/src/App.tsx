@@ -115,9 +115,11 @@ export default function App() {
 
   const [pendingPath, setPendingPath] = useState(() => {
     const path = normalizePath(location.pathname)
+    const state = location.state as { from?: unknown } | null
 
     return (
       (path !== '/login' && validDestination(path)) ||
+      validDestination(state?.from) ||
       validDestination(sessionStorage.getItem(LOGIN_REDIRECT_KEY)) ||
       '/reservations'
     )
@@ -191,19 +193,13 @@ export default function App() {
     }
 
     const state = location.state as { from?: unknown } | null
-
-    const legacyNext =
-      new URLSearchParams(location.search).get('next')
-
-    const destination =
-      validDestination(state?.from) ??
-      validDestination(legacyNext)
+    const destination = validDestination(state?.from)
 
     if (destination) {
       saveDestination(destination)
-      setPendingPath(destination)
     }
 
+    // Remove legacy query parameters without using them as redirects.
     if (location.search) {
       navigate('/login', {
         replace: true,
