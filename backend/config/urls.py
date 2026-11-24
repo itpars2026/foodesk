@@ -1,4 +1,5 @@
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+from core.permissions import IsSuperAdmin
 
 from django.conf import settings
 from django.conf.urls.static import static
@@ -9,10 +10,19 @@ from django.urls import include, path, re_path as rp
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/v1/', include('apis.urls')),
-    path('api/v1/schema', SpectacularAPIView.as_view(), name='api-schema'),
+    path(
+        'api/v1/schema',
+        SpectacularAPIView.as_view(
+            permission_classes=[IsSuperAdmin],
+        ),
+        name='api-schema',
+    ),
     path(
         'api/v1/docs',
-        SpectacularSwaggerView.as_view(url_name='api-schema'),
+        SpectacularSwaggerView.as_view(
+            url_name='api-schema',
+            permission_classes=[IsSuperAdmin],
+        ),
         name='api-docs',
     ),
 ]

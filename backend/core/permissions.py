@@ -46,3 +46,17 @@ class IsCatalogReaderOrManager(BasePermission):
             request.method in ('GET', 'HEAD', 'OPTIONS')
             and user.groups.filter(name__in=(EMPLOYEE_ROLE, VIEWER_ROLE)).exists()
         )
+
+
+class IsSuperAdmin(BasePermission):
+    message = 'Only active super administrators can access API documentation.'
+
+    def has_permission(self, request, view) -> bool:
+        user = request.user
+
+        return bool(
+            user
+            and user.is_authenticated
+            and user.is_active
+            and user.is_superuser
+        )
