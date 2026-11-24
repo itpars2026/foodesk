@@ -65,7 +65,7 @@ def publish_manual_notification(notification_id: int) -> int:
 @transaction.atomic
 def deactivate_notification(notification_id: int) -> None:
     notification = get_notifaction(notification_id)
-    
+
     # Guard clause
     validate_manual_notification(notification.source)
 
