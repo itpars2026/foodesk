@@ -9,33 +9,54 @@
 - **Backend:** Python 3.13, Django 6.1, Django REST Framework, Django Unfold, drf-spectacular
 - **Frontend:** React 19, TypeScript, Vite, Tailwind CSS 4, Axios, pnpm; responsive RTL PWA
 - **Database:** PostgreSQL 17
-- **Local infrastructure:** Docker Compose, Docker secrets, persistent volumes
+- **Infrastructure:** Docker Compose, Docker secrets, persistent volumes, Nginx reverse proxy
 - **Calendar:** Jalali-facing date inputs and Excel reporting; API query dates use `YYYY-MM-DD` where specified
 
-## Local development
+## Docker environments
 
-The supplied `docker-compose.yml` targets **development**, not production. The frontend uses the **Vite development server**, not Nginx, and Django runs with `runserver`.
+Foodesk has two Compose configurations. **Do not run both on the same Docker Engine:** they use the same Compose project name (`food-reservation`) and fixed container names.
 
-1. Create local `secrets/django_secret_key.txt` and `secrets/postgres_password.txt` from their respective `.example.txt` files, using strong secret values. Do not commit the actual files.
-2. Optionally copy `.env.example` to `.env` and review its settings.
-3. Ensure that the external Docker network `shared_net` exists (`docker network create shared_net` if necessary).
-4. Ensure `/opt/food/media` exists on the Docker host. The `food_media` volume uses this **absolute bind-mount path**, so adapt the Compose file when deploying from another host path.
-5. Start the services, then apply migrations explicitly:
+| Compose file | Environment | Django | Frontend |
+|---|---|---|---|
+| `docker-compose.yml` | Production | Gunicorn, production settings | Nginx, prebuilt Vite assets |
+| `docker-compose.dev.yml` | Development | `runserver`, development settings | Vite development server |
+
+### Production setup
+
+The deployed topology uses PostgreSQL 17, the Django backend, and the Nginx frontend. A **separate** reverse proxy under `/opt/nginx` terminates HTTPS and routes traffic over `shared_net` to the frontend (`food-frontend`).
+
+1. Create `secrets/django_secret_key.txt` and `secrets/postgres_password.txt` from the example files. Keep real secrets out of Git.
+2. Configure `.env` for the production domain, allowed hosts, trusted CSRF origins, and database name/user.
+3. Ensure the external `shared_net` Docker network and the host media directory `/opt/food/media` exist.
+4. Back up the production database before significant updates or migrations.
+5. Deploy from `/opt/food` using the production Compose file:
 
 ```bash
-docker compose up --build -d
+docker network inspect shared_net >/dev/null 2>&1 || docker network create shared_net
+mkdir -p /opt/food/media
+docker compose up -d --build
 docker compose exec -T backend python manage.py migrate
+docker compose ps
 ```
 
-| Service | Development URL |
-|---|---|
-| Web application | `http://localhost:5173` |
-| Backend | `http://localhost:8000` |
-| Health | `http://localhost:8000/api/v1/health` |
-| OpenAPI schema | `http://localhost:8000/api/v1/schema` |
-| API documentation | `http://localhost:8000/api/v1/docs` |
+Migrations are **not** run during image build. The backend runs `collectstatic` on container startup. The production frontend does not contain the Node.js/pnpm development tooling.
 
-Vite proxies `/api` requests to Django in development. Database migrations do **not** run automatically as part of the image build.
+### Isolated local development
+
+Use a separate Docker Engine/host, with appropriate local secrets, network configuration, and media path. Adjust the absolute `/opt/food/media` bind path in the development Compose file if needed.
+
+```bash
+docker compose -f docker-compose.dev.yml up -d --build
+docker compose -f docker-compose.dev.yml exec -T backend python manage.py migrate
+```
+
+| Development service | URL |
+|---|---|
+| Vite frontend | `http://localhost:5173` |
+| Django backend | `http://localhost:8000` |
+| Health | `http://localhost:8000/api/v1/health` |
+
+Vite proxies API requests to Django in development.
 
 ## Authentication, roles and API
 
@@ -46,13 +67,14 @@ Roles and permissions are enforced server-side. Super Admin has full administrat
 | Endpoint | Purpose |
 |---|---|
 | `GET /api/v1/config` | Public, read-only site branding |
+| `GET /api/v1/public-meta` | Public HTML fragment for Open Graph and Twitter metadata |
 | `GET /api/v1/auth/session` | Current session status |
 | `GET /api/v1/reservations` | User reservation history |
 | `GET /api/v1/reservations/weekly?start=YYYY-MM-DD` | Weekly reservation view |
 | `GET /api/v1/reports/daily?from=YYYY-MM-DD&to=YYYY-MM-DD` | Daily report for authorized users |
 | `GET /api/v1/reports/daily/export?from=YYYY-MM-DD&to=YYYY-MM-DD` | Daily Excel report with Jalali-formatted dates, subject to permissions |
 
-Consult the OpenAPI schema for the complete, current API contract.
+The OpenAPI schema (`/api/v1/schema`) and Swagger UI (`/api/v1/docs`) are restricted to active authenticated Super Admin users. Use an authorized account for the full API contract.
 
 ## Excel imports
 
@@ -66,7 +88,7 @@ docker compose exec -T backend python manage.py import_monthly_menu sample_data/
 
 Remove `--dry-run` only after checking validation results. The documented import workflow is atomic and validates duplicates/conflicts before writing. Catalog and menu prices are **whole amounts in Toman**, using fields such as `price_toman` (do not confuse them with rial values in other source documents).
 
-The employee workbook includes personnel number, building number, department number, and active status; employee names are not imported by this workflow. Initially, imported employee passwords match the personnel number and must be changed at first login.
+The employee workbook includes personnel number, building number, department number, and active status; employee names are not imported by this workflow. Newly imported employees use the **personnel number** as username and their **national ID** as the initial password; first-login password change is required. Re-importing employees must not automatically reset existing passwords.
 
 The monthly menu workbook contains the `Foods`, `Sides`, and `Drinks` sheets. `Foods` uses `date`, `name`, `price_toman`, `container_price_toman`, and `special_container_price_toman`. Dates can be Excel dates or `YYYY-MM-DD`, and food names must already exist in the catalog. The menu price includes the food price plus the larger of the two container prices. `Sides` and `Drinks` use `name` and `price_toman`.
 
@@ -92,31 +114,48 @@ Reservation cutoff configuration:
 DOCKER_COMPOSE_RESERVATION_CUTOFF_HOUR=10
 ```
 
-Compose maps this variable to the backend's `RESERVATION_CUTOFF_HOUR`. It must be an integer from **0 through 23**. Reservations close at the configured hour on the **day before** the menu date in the `Asia/Tehran` time zone. Recreate the backend container after changing its environment.
+Compose maps this variable to the backend's `RESERVATION_CUTOFF_HOUR`. It must be an integer from **0 through 23**. Reservations close at the configured hour on the **last working day before** the service date in the `Asia/Tehran` time zone. Thursdays, Fridays, and configured official holidays are non-working days; under the confirmed policy, the normal Saturday deadline is Wednesday at the cutoff hour. Recreate the backend container after changing its environment.
 
 Compose mounts `secrets/django_secret_key.txt` and `secrets/postgres_password.txt` under `/run/secrets` in relevant containers. These files must be protected and excluded from Git. Docker Compose secrets do **not** encrypt their source files at rest.
 
 ## Quality checks
 
-```bash
-# Backend
-docker compose exec -T backend python manage.py check
-docker compose exec -T backend python manage.py test
-docker compose exec -T backend ruff check .
-docker compose exec -T backend python manage.py makemigrations --check --dry-run
+Run database-backed Django tests against an **isolated test database**, not the live production database. The GitHub Actions workflows (`backend-ci.yml`, `frontend-ci.yml`, `deploy.yml`) are the source of truth for automated checks and deployment behavior.
 
-# Frontend
-docker compose exec -T frontend pnpm typecheck
-docker compose exec -T frontend pnpm lint
-docker compose exec -T frontend pnpm test:run
+Backend development/test environment:
+
+```bash
+python manage.py check
+python manage.py test
+ruff check .
+python manage.py makemigrations --check --dry-run
 ```
 
-Backend tests use the **Django test runner**, not pytest.
+Frontend development/CI environment (Node.js + pnpm required):
+
+```bash
+cd frontend
+pnpm exec tsc --noEmit
+pnpm exec eslint . --max-warnings 0
+pnpm test:run
+pnpm build
+```
+
+The production Nginx frontend container does not provide pnpm, and the backend uses Django's test runner rather than pytest.
 
 ## Storage and production considerations
 
-- PostgreSQL data persists in `postgres_data` on the internal `food_reservation_internal` network.
-- The frontend and backend attach to the external `shared_net`; PostgreSQL is not exposed through that network.
-- Uploaded media persists in `food_media`, bound to `/opt/food/media` on the host; the backend uses `MEDIA_URL=/media/` and `MEDIA_ROOT=/app/media`.
-- Django static files use `STATIC_ROOT=/app/staticfiles` in the current container layout. Production needs a proper static-file and media-serving setup; merely defining these paths does not make them publicly accessible.
-- The supplied Compose runs Vite and Django development servers with a debug-oriented configuration. **Do not deploy it unchanged to production.** Review HTTPS, `DEBUG=False`, secure cookies and CSRF settings, allowed hosts, secret management, backups, operational logging, and static/media serving before deployment.
+- Production PostgreSQL data lives in the `postgres_data` named volume. Never use `docker compose down -v` on production.
+- `food_db_net` connects PostgreSQL and Django; `food_app_net` connects Django and the frontend; `shared_net` connects the frontend to the independent HTTPS reverse proxy. PostgreSQL is not published directly to the host.
+- Uploaded media persists in `food_media`, bound to `/opt/food/media` on the server. Collected Django static assets use the `django_static` volume shared with the frontend Nginx.
+- Production Django uses `config.settings.production` and Gunicorn; the frontend Nginx serves Vite's built assets and proxies `/api/` and `/admin/` to Django.
+- Keep secrets, database backups, and uploaded media outside Git. Verify recoverability before applying risky changes.
+- Changes to the frontend or backend images require a controlled redeploy; inspect service health after updating.
+
+## Social metadata, robots, and CDN caching
+
+A singleton `core.SiteSettings` record controls site branding. React reads `/api/v1/config` for runtime branding. For link previews, Django exposes `/api/v1/public-meta`; frontend Nginx uses SSI to insert escaped Open Graph and Twitter tags directly into the initial HTML, including for crawlers that do not run JavaScript. Changing site branding should not require a React rebuild, provided dynamic HTML is not served stale by a CDN.
+
+The app's HTML uses `noindex, nofollow`, and `/robots.txt` should be served as **text/plain** instead of the SPA fallback HTML. CDN caching must be bypassed for `/api/*`, `/admin/*`, and dynamic HTML routes; `/robots.txt` may require a one-time purge of a previously cached HTML response. Versioned Vite assets under `/static/app/assets/` may retain long-lived immutable caching.
+
+The initial HTML `<title>` is currently static; React updates the browser tab title after loading `/api/v1/config`. The SSI fragment updates social metadata, not the initial `<title>`. Do not assume that every messaging platform will refresh an existing link preview immediately.
