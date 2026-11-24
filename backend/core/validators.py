@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from django.contrib.auth import password_validation
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 from typing import TYPE_CHECKING
 
+from datetime import datetime
 from PIL import Image, UnidentifiedImageError
 
 if TYPE_CHECKING:
@@ -121,3 +123,36 @@ def validate_brand_image(uploaded_file):
 
     finally:
         uploaded_file.seek(original_position)
+
+def validate_manual_notification(source: str) -> None:
+    if source == 'manual':
+        return
+
+    raise ValidationError('اعلان سیستمی از این بخش قابل انتشار نیست.')
+
+
+def validate_notification_expiration(expires_at: datetime | None) -> None:
+    if expires_at is None:
+        return
+
+    if expires_at > timezone.now():
+        return
+
+    raise ValidationError('تاریخ انقضای اعلان گذشته است.')
+
+
+def validate_notification_target_roles(send_to_all: bool,has_target_roles: bool) -> None:
+    if send_to_all:
+        return
+
+    if has_target_roles:
+        return
+
+    raise ValidationError('حداقل یک نقش دریافت‌کننده انتخاب کنید.')
+
+
+def validate_notification_recipients(has_recipients: bool) -> None:
+    if has_recipients:
+        return
+
+    raise ValidationError('هیچ کاربر فعالی برای دریافت اعلان یافت نشد.')

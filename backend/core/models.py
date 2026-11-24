@@ -120,6 +120,7 @@ class Notification(TimeStampedModel):
     event_key = models.CharField(max_length=150, unique=True, null=True, blank=True)
 
     is_active = models.BooleanField(default=False)
+    send_to_all = models.BooleanField(default=False, verbose_name='ارسال به تمام کاربران')
 
     starts_at = models.DateTimeField(default=timezone.now)
     expires_at = models.DateTimeField(null=True, blank=True)
