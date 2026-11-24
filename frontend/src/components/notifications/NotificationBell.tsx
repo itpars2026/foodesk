@@ -7,6 +7,7 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 import {
   getNotifications,
@@ -16,69 +17,84 @@ import {
 } from '../../api/endpoints'
 import type { NotificationItem } from '../../api/types'
 
-const NOTIFICATIONS_UPDATED_EVENT = 'foodesk:notifications-updated'
-
 function notificationIcon(type: NotificationItem['notification_type']) {
   if (type === 'warning') return AlertTriangle
   if (type === 'reminder') return Clock3
   return Info
 }
 
-export default function NotificationBell() {
+type NotificationBellProps = {
+  unreadCount: number
+  onUnreadCountChange: (count: number) => void
+}
+
+export default function NotificationBell({
+  unreadCount,
+  onUnreadCountChange,
+}: NotificationBellProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const bellButtonRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLElement>(null)
+  const [panelPosition, setPanelPosition] = useState({
+    top: 0,
+    left: 12,
+    width: 350,
+  })
+  const requestVersion = useRef(0)
+  const mutationInProgress = useRef(false)
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<NotificationItem[]>([])
-  const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(false)
   const [busyId, setBusyId] = useState<number | null>(null)
   const [readingAll, setReadingAll] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    let mounted = true
-
-    const refresh = () => {
-      getNotificationUnreadCount()
-        .then((result) => {
-          if (mounted) setUnreadCount(result.unread_count)
-        })
-        .catch(() => {
-          // A transient error must not interrupt the application shell.
-        })
-    }
-
-    const refreshWhenVisible = () => {
-      if (!document.hidden) refresh()
-    }
-
-    refresh()
-
-    window.addEventListener('focus', refresh)
-    window.addEventListener(NOTIFICATIONS_UPDATED_EVENT, refresh)
-    document.addEventListener('visibilitychange', refreshWhenVisible)
-
     return () => {
-      mounted = false
-      window.removeEventListener('focus', refresh)
-      window.removeEventListener(NOTIFICATIONS_UPDATED_EVENT, refresh)
-      document.removeEventListener('visibilitychange', refreshWhenVisible)
+      requestVersion.current += 1
     }
   }, [])
+
+  function updatePanelPosition() {
+    const rect = bellButtonRef.current?.getBoundingClientRect()
+    if (!rect) return
+
+    const width = Math.min(350, window.innerWidth - 24)
+    const left = Math.max(
+      12,
+      Math.min(rect.right - width, window.innerWidth - width - 12),
+    )
+
+    setPanelPosition({
+      top: rect.bottom + 10,
+      left,
+      width,
+    })
+  }
 
   useEffect(() => {
     if (!open) return
 
+    panelRef.current?.focus()
+
+    window.addEventListener('resize', updatePanelPosition)
+    window.addEventListener('scroll', updatePanelPosition, true)
+
     const handlePointerDown = (event: PointerEvent) => {
       if (
         event.target instanceof Node &&
-        !containerRef.current?.contains(event.target)
+        !containerRef.current?.contains(event.target) &&
+        !panelRef.current?.contains(event.target)
       ) {
         setOpen(false)
       }
     }
 
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false)
+      if (event.key === 'Escape') {
+        setOpen(false)
+        bellButtonRef.current?.focus()
+      }
     }
 
     document.addEventListener('pointerdown', handlePointerDown)
@@ -87,10 +103,16 @@ export default function NotificationBell() {
     return () => {
       document.removeEventListener('pointerdown', handlePointerDown)
       document.removeEventListener('keydown', handleEscape)
+      window.removeEventListener('resize', updatePanelPosition)
+      window.removeEventListener('scroll', updatePanelPosition, true)
     }
   }, [open])
 
   async function refreshNotifications() {
+    if (mutationInProgress.current) return
+
+    const version = ++requestVersion.current
+
     setLoading(true)
     setError('')
 
@@ -100,12 +122,18 @@ export default function NotificationBell() {
         getNotificationUnreadCount(),
       ])
 
+      if (version !== requestVersion.current) return
+
       setItems(list.results)
-      setUnreadCount(count.unread_count)
+      onUnreadCountChange(count.unread_count)
     } catch {
-      setError('دریافت اعلان‌ها انجام نشد. دوباره تلاش کنید.')
+      if (version === requestVersion.current) {
+        setError('دریافت اعلان‌ها انجام نشد. دوباره تلاش کنید.')
+      }
     } finally {
-      setLoading(false)
+      if (version === requestVersion.current) {
+        setLoading(false)
+      }
     }
   }
 
@@ -115,13 +143,17 @@ export default function NotificationBell() {
       return
     }
 
+    updatePanelPosition()
     setOpen(true)
     void refreshNotifications()
   }
 
   async function readNotification(notification: NotificationItem) {
-    if (notification.is_read || busyId !== null || readingAll) return
+    if (notification.is_read || mutationInProgress.current) return
 
+    mutationInProgress.current = true
+    requestVersion.current += 1
+    setLoading(false)
     setBusyId(notification.id)
     setError('')
 
@@ -134,18 +166,21 @@ export default function NotificationBell() {
         ),
       )
 
-      setUnreadCount((previous) => Math.max(0, previous - 1))
-      window.dispatchEvent(new Event(NOTIFICATIONS_UPDATED_EVENT))
+      onUnreadCountChange(Math.max(0, unreadCount - 1))
     } catch {
       setError('ثبت وضعیت خوانده‌شدن انجام نشد.')
     } finally {
+      mutationInProgress.current = false
       setBusyId(null)
     }
   }
 
   async function readAll() {
-    if (readingAll || busyId !== null || unreadCount === 0) return
+    if (mutationInProgress.current || unreadCount === 0) return
 
+    mutationInProgress.current = true
+    requestVersion.current += 1
+    setLoading(false)
     setReadingAll(true)
     setError('')
 
@@ -160,11 +195,11 @@ export default function NotificationBell() {
         })),
       )
 
-      setUnreadCount(0)
-      window.dispatchEvent(new Event(NOTIFICATIONS_UPDATED_EVENT))
+      onUnreadCountChange(0)
     } catch {
       setError('خواندن همه اعلان‌ها انجام نشد.')
     } finally {
+      mutationInProgress.current = false
       setReadingAll(false)
     }
   }
@@ -172,6 +207,7 @@ export default function NotificationBell() {
   return (
     <div ref={containerRef} className="relative shrink-0">
       <button
+        ref={bellButtonRef}
         type="button"
         onClick={togglePanel}
         className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-ink transition-colors hover:bg-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
@@ -196,11 +232,19 @@ export default function NotificationBell() {
         )}
       </button>
 
-      {open && (
+      {open && createPortal(
         <section
+          ref={panelRef}
+          tabIndex={-1}
           role="dialog"
           aria-label="اعلان‌های سامانه"
-          className="absolute end-0 top-[calc(100%+10px)] z-50 w-[min(350px,calc(100vw-24px))] overflow-hidden rounded-xl border border-line bg-surface text-ink shadow-xl"
+          className="fixed z-50 flex flex-col overflow-hidden rounded-xl border border-line bg-surface text-ink shadow-xl"
+          style={{
+            top: panelPosition.top,
+            left: panelPosition.left,
+            width: panelPosition.width,
+            maxHeight: `calc(100dvh - ${panelPosition.top + 12}px)`,
+          }}
         >
           <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-3">
             <div className="flex items-center gap-2">
@@ -217,7 +261,7 @@ export default function NotificationBell() {
               <button
                 type="button"
                 onClick={() => void refreshNotifications()}
-                disabled={loading}
+                disabled={loading || busyId !== null || readingAll}
                 aria-label="به‌روزرسانی اعلان‌ها"
                 title="به‌روزرسانی"
                 className="rounded-md p-1.5 text-muted hover:bg-raised disabled:opacity-50"
@@ -243,7 +287,7 @@ export default function NotificationBell() {
             </p>
           )}
 
-          <div className="max-h-[min(420px,65vh)] overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto">
             {loading ? (
               <p className="p-6 text-center text-sm text-muted">
                 در حال دریافت اعلان‌ها...
@@ -316,7 +360,8 @@ export default function NotificationBell() {
               </ul>
             )}
           </div>
-        </section>
+        </section>,
+        document.body,
       )}
     </div>
   )

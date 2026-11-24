@@ -10,9 +10,10 @@ import {
   UserRound,
   Utensils,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { api, RESERVATIONS_CHANGED_EVENT } from '../../api/client'
+import { getNotificationUnreadCount } from '../../api/endpoints'
 import type { User } from '../../api/types'
 import { formatMoney } from '../../utils/format'
 import type { Page } from '../../app/navigation'
@@ -56,6 +57,49 @@ export default function MainShell({
   const [wallet, setWallet] = useState<WalletSummary | null>(null)
   const [walletError, setWalletError] = useState(false)
   const [theme, setCurrentTheme] = useState(getCurrentTheme)
+
+  const [notificationUnreadCount, setNotificationUnreadCount] = useState(0)
+  const notificationRequestId = useRef(0)
+
+  function updateNotificationUnreadCount(count: number) {
+    notificationRequestId.current += 1
+    setNotificationUnreadCount(count)
+  }
+
+  useEffect(() => {
+    let active = true
+
+    function refreshCount() {
+      const requestId = ++notificationRequestId.current
+
+      getNotificationUnreadCount()
+        .then(({ unread_count }) => {
+          if (active && requestId === notificationRequestId.current) {
+            setNotificationUnreadCount(unread_count)
+          }
+        })
+        .catch(() => {
+          // Preserve last known count during temporary network errors.
+        })
+    }
+
+    function refreshWhenVisible() {
+      if (!document.hidden) refreshCount()
+    }
+
+    refreshCount()
+
+    window.addEventListener('focus', refreshCount)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+
+    return () => {
+      active = false
+      notificationRequestId.current += 1
+      window.removeEventListener('focus', refreshCount)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+    }
+  }, [user.id])
+
 
   useEffect(() => {
     const syncTheme = () => setCurrentTheme(getCurrentTheme())
@@ -218,7 +262,10 @@ export default function MainShell({
             </span>
           </span>
         </div>
-        <NotificationBell />
+        <NotificationBell
+          unreadCount={notificationUnreadCount}
+          onUnreadCountChange={updateNotificationUnreadCount}
+        />
         {themeToggle}
         <button aria-label="خروج از حساب" className={iconButtonClass} onClick={onLogout} type="button"><LogOut size={18} /></button>
       </header>
@@ -227,7 +274,10 @@ export default function MainShell({
           <div className="flex items-center gap-[7px]">{branding.site_name} <ChevronLeft aria-hidden="true" size={14} /> {branding.site_description}</div>
           <div className="flex items-center gap-3">
             <div>کد پرسنلی <strong className="ms-[5px] text-ink">{user.username}</strong></div>
-            <NotificationBell />
+            <NotificationBell
+          unreadCount={notificationUnreadCount}
+          onUnreadCountChange={updateNotificationUnreadCount}
+        />
             {themeToggle}
           </div>
         </div>
