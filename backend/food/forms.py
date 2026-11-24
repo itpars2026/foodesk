@@ -8,6 +8,7 @@ from typing import ClassVar
 from food.jalali import format_jalali_date, parse_jalali_date
 from food.models import Drink, Food, Holiday, Side
 from food.services import prepare_catalog_image
+from food.widgets import JalaliDatePickerWidget
 
 
 class CatalogImageAdminForm(forms.ModelForm):
@@ -71,13 +72,7 @@ class JalaliDateField(forms.DateField):
 class HolidayAdminForm(forms.ModelForm):
     date = JalaliDateField(
         label='تاریخ تعطیلی',
-        widget=forms.TextInput(
-            attrs={
-                'placeholder': '1405/09/05',
-                'dir': 'ltr',
-                'autocomplete': 'off',
-            }
-        ),
+        widget=JalaliDatePickerWidget(),
     )
 
     class Meta:

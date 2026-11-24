@@ -1,0 +1,246 @@
+/* ==========================================
+   Foodesk - Jalali Datepicker
+   Django Unfold Admin
+   ========================================== */
+
+/* Date input */
+.foodesk-jalali-date {
+  cursor: pointer;
+}
+
+/* Calendar popup - Light Mode */
+.foodesk-jalali-popup {
+  position: fixed;
+  z-index: 99999;
+
+  box-sizing: border-box;
+  width: 316px;
+  max-width: calc(100vw - 16px);
+  padding: 12px;
+
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+
+  background: #ffffff;
+  color: #111827;
+
+  box-shadow: 0 12px 32px rgb(0 0 0 / 15%);
+
+  font-family: inherit;
+  direction: rtl;
+  text-align: right;
+}
+
+/* ==========================================
+   Header
+   ========================================== */
+
+.foodesk-jalali-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+
+  margin-bottom: 12px;
+}
+
+.foodesk-jalali-header strong {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+/* Month navigation */
+.foodesk-jalali-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+
+  background: transparent;
+  color: #374151;
+
+  font: inherit;
+  font-size: 24px;
+  line-height: 1;
+
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.foodesk-jalali-nav:hover {
+  background: #f3f4f6;
+}
+
+.foodesk-jalali-nav:focus-visible {
+  outline: 2px solid #0f766e;
+  outline-offset: 2px;
+}
+
+/* ==========================================
+   Calendar Grid
+   ========================================== */
+
+.foodesk-jalali-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+
+  text-align: center;
+}
+
+/* Weekday labels */
+.foodesk-jalali-weekday {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  min-height: 32px;
+  padding: 6px 0;
+
+  color: #6b7280;
+
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Day buttons */
+.foodesk-jalali-day {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  min-width: 0;
+  min-height: 36px;
+
+  padding: 4px;
+  border: 0;
+  border-radius: 8px;
+
+  background: transparent;
+  color: #111827;
+
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+
+  cursor: pointer;
+
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.foodesk-jalali-day:hover {
+  background: #f3f4f6;
+}
+
+/* Current day */
+.foodesk-jalali-day.is-today {
+  box-shadow: inset 0 0 0 1px #0f766e;
+}
+
+/* Selected day */
+.foodesk-jalali-day.is-selected {
+  background: #0f766e;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.foodesk-jalali-day.is-selected:hover {
+  background: #115e59;
+}
+
+/* Keyboard accessibility */
+.foodesk-jalali-day:focus-visible {
+  outline: 2px solid #0f766e;
+  outline-offset: 2px;
+}
+
+/* ==========================================
+   Django Unfold Dark Mode
+   ========================================== */
+
+html.dark .foodesk-jalali-popup {
+  background: #111827;
+  border-color: #374151;
+  color: #f9fafb;
+  color-scheme: dark;
+
+  box-shadow: 0 12px 32px rgb(0 0 0 / 35%);
+}
+
+html.dark .foodesk-jalali-header strong {
+  color: #f9fafb;
+}
+
+html.dark .foodesk-jalali-weekday {
+  color: #9ca3af;
+}
+
+html.dark .foodesk-jalali-nav {
+  color: #f9fafb;
+}
+
+html.dark .foodesk-jalali-day {
+  color: #f9fafb;
+}
+
+html.dark .foodesk-jalali-nav:hover,
+html.dark .foodesk-jalali-day:hover {
+  background: #374151;
+}
+
+html.dark .foodesk-jalali-day.is-today {
+  box-shadow: inset 0 0 0 1px #2dd4bf;
+}
+
+html.dark .foodesk-jalali-day.is-selected {
+  background: #0f766e;
+  color: #ffffff;
+}
+
+html.dark .foodesk-jalali-day.is-selected:hover {
+  background: #115e59;
+}
+
+/* ==========================================
+   Responsive
+   ========================================== */
+
+@media (max-width: 480px) {
+  .foodesk-jalali-popup {
+    padding: 10px;
+    border-radius: 10px;
+  }
+
+  .foodesk-jalali-grid {
+    gap: 2px;
+  }
+
+  .foodesk-jalali-day {
+    min-height: 38px;
+    font-size: 13px;
+  }
+
+  .foodesk-jalali-weekday {
+    min-height: 30px;
+  }
+}
+
+/* Reduced motion accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .foodesk-jalali-nav,
+  .foodesk-jalali-day {
+    transition: none;
+  }
+}
