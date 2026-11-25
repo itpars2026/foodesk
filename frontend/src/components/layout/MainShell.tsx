@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   ClipboardList,
   LogOut,
+  Utensils,
   Moon,
   Sun,
   Wallet,
