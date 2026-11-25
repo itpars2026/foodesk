@@ -23,6 +23,15 @@ services:
       retries: 10
       start_period: 10s
   backend:
+    image: food-reservation-backend:${BACKEND_IMAGE_TAG:-latest}
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
     container_name: backend
     group_add:
       - "1000"
@@ -90,6 +99,15 @@ services:
 
 
   frontend:
+    image: food-reservation-frontend:${FRONTEND_IMAGE_TAG:-latest}
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
     container_name: frontend
     build:
       context: ./frontend
