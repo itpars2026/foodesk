@@ -1,0 +1,56 @@
+name: VPS OpenSSH Diagnostic
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ssh-diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Test native OpenSSH
+        shell: bash
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VPS_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          trap 'rm -f ~/.ssh/id_deploy' EXIT
+
+          # Verified ED25519 host key fingerprint
+          expected='SHA256:Kvnbzea4S6SB4w6vGcLo4xNNhEhYR30bvFMXuM2s5fs'
+
+          ssh-keyscan -T 10 -t ed25519 "$VPS_HOST" \
+            2>/dev/null > ~/.ssh/known_hosts
+
+          actual="$(ssh-keygen -lf ~/.ssh/known_hosts -E sha256 | awk '{print $2}')"
+
+          if [[ "$actual" != "$expected" ]]; then
+            echo "ERROR: Host key fingerprint mismatch"
+            exit 1
+          fi
+
+          echo "Host identity verified"
+
+          timeout 25s ssh \
+            -i ~/.ssh/id_deploy \
+            -o IdentitiesOnly=yes \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=10 \
+            -o ServerAliveInterval=5 \
+            -o ServerAliveCountMax=2 \
+            "$VPS_USER@$VPS_HOST" \
+            true
+
+          echo "OPENSSH_SUCCESS"
