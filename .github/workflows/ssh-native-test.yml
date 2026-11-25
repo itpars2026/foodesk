@@ -44,6 +44,10 @@ jobs:
 
           timeout 25s ssh -vvv \
             -i ~/.ssh/id_deploy \
+            -o KexAlgorithms=curve25519-sha256 \
+            -o Ciphers=aes128-gcm@openssh.com \
+            -o Compression=no \
+            -o IPQoS=none \
             -o IdentitiesOnly=yes \
             -o BatchMode=yes \
             -o StrictHostKeyChecking=yes \
