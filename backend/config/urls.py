@@ -1,12 +1,13 @@
-from core.social_meta import public_social_meta
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
-from core.permissions import IsSuperAdmin
 
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.staticfiles.views import serve as staticfiles_serve
 from django.urls import include, path, re_path as rp
+
+from core.permissions import IsSuperAdmin
+from core.social_meta import public_social_meta
 
 urlpatterns = [
     path('api/v1/public-meta', public_social_meta, name='public-social-meta'),

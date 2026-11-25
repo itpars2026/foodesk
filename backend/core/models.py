@@ -136,10 +136,7 @@ class Notification(TimeStampedModel):
         ]
         constraints = [
             models.CheckConstraint(
-                condition=(
-                    Q(expires_at__isnull=True)
-                    | Q(expires_at__gt=F('starts_at'))
-                ),
+                condition=(Q(expires_at__isnull=True) | Q(expires_at__gt=F('starts_at'))),
                 name='core_notification_valid_dates',
             ),
         ]

@@ -174,7 +174,7 @@ class NotificationSerializer(serializers.ModelSerializer):
     title = serializers.CharField(source='notification.title', read_only=True)
 
     message = serializers.CharField(source='notification.message', read_only=True)
-    notification_type = serializers.CharField(source='notification.notification_type',read_only=True)
+    notification_type = serializers.CharField(source='notification.notification_type', read_only=True)
 
     starts_at = serializers.DateTimeField(source='notification.starts_at', read_only=True)
     is_read = serializers.SerializerMethodField()
@@ -208,10 +208,10 @@ class MonthlySubsidyUpdateSerializer(serializers.Serializer):
 
         try:
             return set_monthly_subsidy(
-                self.context["profile"],
-                year=validated_data["jalali_year"],
-                month=validated_data["jalali_month"],
-                receive_subsidy=validated_data["receive_subsidy"],
+                self.context['profile'],
+                year=validated_data['jalali_year'],
+                month=validated_data['jalali_month'],
+                receive_subsidy=validated_data['receive_subsidy'],
             )
         except DjangoValidationError as exc:
-            raise serializers.ValidationError({"detail": exc.messages}) from exc
+            raise serializers.ValidationError({'detail': exc.messages}) from exc

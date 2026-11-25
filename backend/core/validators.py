@@ -124,6 +124,7 @@ def validate_brand_image(uploaded_file):
     finally:
         uploaded_file.seek(original_position)
 
+
 def validate_manual_notification(source: str) -> None:
     if source == 'manual':
         return
@@ -141,7 +142,7 @@ def validate_notification_expiration(expires_at: datetime | None) -> None:
     raise ValidationError('تاریخ انقضای اعلان گذشته است.')
 
 
-def validate_notification_target_roles(send_to_all: bool,has_target_roles: bool) -> None:
+def validate_notification_target_roles(send_to_all: bool, has_target_roles: bool) -> None:
     if send_to_all:
         return
 
@@ -156,6 +157,7 @@ def validate_notification_recipients(has_recipients: bool) -> None:
         return
 
     raise ValidationError('هیچ کاربر فعالی برای دریافت اعلان یافت نشد.')
+
 
 def validate_system_notification_payload(
     *,
@@ -196,7 +198,7 @@ def validate_subsidy_change(year, month, receive_subsidy, *, now=None):
     from core.subsidy import can_change_subsidy
 
     if type(receive_subsidy) is not bool:
-        raise ValidationError("وضعیت یارانه نامعتبر است.")
+        raise ValidationError('وضعیت یارانه نامعتبر است.')
 
     if not can_change_subsidy(year, month, now=now):
-        raise ValidationError("مهلت تغییر وضعیت یارانه به پایان رسیده است.")
+        raise ValidationError('مهلت تغییر وضعیت یارانه به پایان رسیده است.')

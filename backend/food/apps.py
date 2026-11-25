@@ -6,5 +6,4 @@ class FoodConfig(AppConfig):
     name = 'food'
 
     def ready(self):
-        from . import receivers  # noqa: F401\n        from . import notification_handlers  # noqa: F401
-        from . import notification_handlers  # noqa: F401
+        from . import notification_handlers, receivers  # noqa: F401

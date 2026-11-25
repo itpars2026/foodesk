@@ -2,6 +2,7 @@ from django import forms
 
 from core.models import Notification
 
+
 class NotificationAdminForm(forms.ModelForm):
     class Meta:
         model = Notification

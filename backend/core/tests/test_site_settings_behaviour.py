@@ -1,8 +1,8 @@
-from types import SimpleNamespace
-
 from django.contrib.admin.sites import AdminSite
 from django.core.exceptions import ValidationError
 from django.test import RequestFactory, TestCase
+
+from types import SimpleNamespace
 
 from core.admin import SiteSettingsAdmin
 from core.models import SiteSettings
@@ -55,15 +55,9 @@ class SiteSettingsAdminTests(TestCase):
     def test_regular_user_cannot_manage_settings(self):
         request = self.request_for(is_superuser=False)
 
-        self.assertFalse(
-            self.site_admin.has_view_permission(request)
-        )
-        self.assertFalse(
-            self.site_admin.has_change_permission(request)
-        )
-        self.assertFalse(
-            self.site_admin.has_add_permission(request)
-        )
+        self.assertFalse(self.site_admin.has_view_permission(request))
+        self.assertFalse(self.site_admin.has_change_permission(request))
+        self.assertFalse(self.site_admin.has_add_permission(request))
 
     def test_inactive_superuser_cannot_manage_settings(self):
         request = self.request_for(
@@ -71,38 +65,24 @@ class SiteSettingsAdminTests(TestCase):
             is_active=False,
         )
 
-        self.assertFalse(
-            self.site_admin.has_view_permission(request)
-        )
-        self.assertFalse(
-            self.site_admin.has_change_permission(request)
-        )
+        self.assertFalse(self.site_admin.has_view_permission(request))
+        self.assertFalse(self.site_admin.has_change_permission(request))
 
     def test_superuser_can_manage_settings(self):
         request = self.request_for(is_superuser=True)
 
-        self.assertTrue(
-            self.site_admin.has_view_permission(request)
-        )
-        self.assertTrue(
-            self.site_admin.has_change_permission(request)
-        )
-        self.assertTrue(
-            self.site_admin.has_add_permission(request)
-        )
+        self.assertTrue(self.site_admin.has_view_permission(request))
+        self.assertTrue(self.site_admin.has_change_permission(request))
+        self.assertTrue(self.site_admin.has_add_permission(request))
 
         SiteSettings.objects.create()
 
-        self.assertFalse(
-            self.site_admin.has_add_permission(request)
-        )
+        self.assertFalse(self.site_admin.has_add_permission(request))
 
     def test_deletion_is_always_disabled(self):
         request = self.request_for(is_superuser=True)
 
-        self.assertFalse(
-            self.site_admin.has_delete_permission(request)
-        )
+        self.assertFalse(self.site_admin.has_delete_permission(request))
 
 
 class SiteSettingsMetadataTests(TestCase):

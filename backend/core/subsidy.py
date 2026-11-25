@@ -34,7 +34,6 @@ def subsidy_deadline(year: int, month: int, cutoff_hour: int = 10):
     )
 
 
-
 def current_and_next_jalali_month(now=None):
     now = timezone.localtime(now or timezone.now(), timezone.get_default_timezone())
     today = jdatetime.date.fromgregorian(date=now.date())
@@ -46,16 +45,16 @@ def current_and_next_jalali_month(now=None):
 
 def can_change_subsidy(year: int, month: int, *, now=None, cutoff_hour=10):
     now = timezone.localtime(now or timezone.now(), timezone.get_default_timezone())
-    return (year, month) in current_and_next_jalali_month(now) and now < subsidy_deadline(
-        year, month, cutoff_hour
-    )
+    return (year, month) in current_and_next_jalali_month(now) and now < subsidy_deadline(year, month, cutoff_hour)
 
 
 def effective_subsidy(profile, year: int, month: int):
     """Missing preference means subsidy is enabled; no default rows are created."""
-    value = MonthlySubsidyPreference.objects.filter(
-        profile=profile, jalali_year=year, jalali_month=month
-    ).values_list('receive_subsidy', flat=True).first()
+    value = (
+        MonthlySubsidyPreference.objects.filter(profile=profile, jalali_year=year, jalali_month=month)
+        .values_list('receive_subsidy', flat=True)
+        .first()
+    )
     return True if value is None else value
 
 

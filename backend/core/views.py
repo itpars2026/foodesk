@@ -183,16 +183,18 @@ class AuthViewSet(viewsets.GenericViewSet):
                 'receive_subsidy': serializers.BooleanField(),
             },
         ),
-        responses={200: inline_serializer(
-            name='MonthlySubsidyMonthResponse',
-            fields={
-                'jalali_year': serializers.IntegerField(),
-                'jalali_month': serializers.IntegerField(),
-                'receive_subsidy': serializers.BooleanField(),
-                'can_change': serializers.BooleanField(),
-                'deadline': serializers.DateTimeField(),
-            },
-        )},
+        responses={
+            200: inline_serializer(
+                name='MonthlySubsidyMonthResponse',
+                fields={
+                    'jalali_year': serializers.IntegerField(),
+                    'jalali_month': serializers.IntegerField(),
+                    'receive_subsidy': serializers.BooleanField(),
+                    'can_change': serializers.BooleanField(),
+                    'deadline': serializers.DateTimeField(),
+                },
+            )
+        },
     )
     @action(
         detail=False,
@@ -207,18 +209,17 @@ class AuthViewSet(viewsets.GenericViewSet):
     def subsidy_preferences(self, request):
         profile = get_object_or_404(Profile, user=request.user)
 
-        if request.method == "GET":
+        if request.method == 'GET':
             months = current_and_next_jalali_month()
-            return Response({
-                "months": [
-                    self._subsidy_result(profile, year, month)
-                    for year, month in months
-                ],
-            })
+            return Response(
+                {
+                    'months': [self._subsidy_result(profile, year, month) for year, month in months],
+                }
+            )
 
         serializer = MonthlySubsidyUpdateSerializer(
             data=request.data,
-            context={"profile": profile},
+            context={'profile': profile},
         )
         serializer.is_valid(raise_exception=True)
         preference = serializer.save()
@@ -234,11 +235,11 @@ class AuthViewSet(viewsets.GenericViewSet):
     @staticmethod
     def _subsidy_result(profile, year, month):
         return {
-            "jalali_year": year,
-            "jalali_month": month,
-            "receive_subsidy": effective_subsidy(profile, year, month),
-            "can_change": can_change_subsidy(year, month),
-            "deadline": subsidy_deadline(year, month),
+            'jalali_year': year,
+            'jalali_month': month,
+            'receive_subsidy': effective_subsidy(profile, year, month),
+            'can_change': can_change_subsidy(year, month),
+            'deadline': subsidy_deadline(year, month),
         }
 
     @action(detail=False, methods=['get'], url_path='profile-options')
@@ -313,16 +314,12 @@ class NotificationViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         now = timezone.now()
 
         return (
-            NotificationRecipient.objects
-            .filter(
+            NotificationRecipient.objects.filter(
                 user=self.request.user,
                 notification__is_active=True,
                 notification__starts_at__lte=now,
             )
-            .filter(
-                Q(notification__expires_at__isnull=True)
-                | Q(notification__expires_at__gt=now)
-            )
+            .filter(Q(notification__expires_at__isnull=True) | Q(notification__expires_at__gt=now))
             .select_related('notification')
             .order_by(
                 '-notification__starts_at',
@@ -332,9 +329,13 @@ class NotificationViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
 
     @action(detail=False, methods=['get'], url_path='unread-count')
     def unread_count(self, request):
-        count = self.get_queryset().filter(
-            read_at__isnull=True,
-        ).count()
+        count = (
+            self.get_queryset()
+            .filter(
+                read_at__isnull=True,
+            )
+            .count()
+        )
 
         return Response({'unread_count': count})
 
@@ -358,14 +359,20 @@ class NotificationViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     def read_all(self, request):
         now = timezone.now()
 
-        count = self.get_queryset().filter(
-            read_at__isnull=True,
-        ).update(
-            read_at=now,
-            datetime_modified=now,
+        count = (
+            self.get_queryset()
+            .filter(
+                read_at__isnull=True,
+            )
+            .update(
+                read_at=now,
+                datetime_modified=now,
+            )
         )
 
-        return Response({
-            'marked_read': count,
-            'unread_count': 0,
-        })
+        return Response(
+            {
+                'marked_read': count,
+                'unread_count': 0,
+            }
+        )

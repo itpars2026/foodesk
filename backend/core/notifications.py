@@ -111,18 +111,15 @@ def publish_system_notification(
     }
 
     # Happy path
-    notification, created = (
-        Notification.objects
-        .select_for_update()
-        .get_or_create(
-            event_key=event_key,
-            defaults=defaults,
-        )
+    notification, created = Notification.objects.select_for_update().get_or_create(
+        event_key=event_key,
+        defaults=defaults,
     )
 
     if not created:
         if notification.source != Notification.NotificationSource.SYSTEM:
             from django.core.exceptions import ValidationError
+
             raise ValidationError('کلید رویداد متعلق به اعلان سیستمی نیست.')
 
         updated_fields = []
@@ -147,7 +144,12 @@ def publish_system_notification(
 
         if updated_fields:
             notification.starts_at = now
-            updated_fields.extend(['starts_at', 'datetime_modified',])
+            updated_fields.extend(
+                [
+                    'starts_at',
+                    'datetime_modified',
+                ]
+            )
 
             notification.save(update_fields=updated_fields)
 

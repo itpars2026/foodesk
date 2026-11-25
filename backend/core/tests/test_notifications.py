@@ -1,16 +1,15 @@
-from datetime import date
-
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.db import transaction
 from django.test import TestCase
 from django.utils import timezone
 
+from datetime import date
+
 from core.models import Notification, NotificationRecipient
 from core.notifications import publish_manual_notification
 from core.roles import HR_FOOD_ROLE
 from food.models import Holiday
-
 
 User = get_user_model()
 
@@ -117,7 +116,7 @@ class HolidayNotificationTests(TestCase):
                 date=date(2026, 12, 15),
                 description='تعطیلی آزمایشی',
             )
-        return holiday
+        return holiday  # noqa: RET504
 
     def get_notification(self, holiday):
         return Notification.objects.get(
@@ -206,14 +205,12 @@ class HolidayNotificationTests(TestCase):
         )
 
     def test_rollback_does_not_publish_notification(self):
-        with self.captureOnCommitCallbacks(execute=True):
-            with self.assertRaises(RuntimeError):
-                with transaction.atomic():
-                    Holiday.objects.create(
-                        date=date(2026, 12, 16),
-                        description='تعطیلی Rollback',
-                    )
-                    raise RuntimeError('Rollback test')
+        with self.captureOnCommitCallbacks(execute=True), self.assertRaises(RuntimeError), transaction.atomic():
+            Holiday.objects.create(
+                date=date(2026, 12, 16),
+                description='تعطیلی Rollback',
+            )
+            raise RuntimeError('Rollback test')
 
         self.assertFalse(
             Notification.objects.filter(

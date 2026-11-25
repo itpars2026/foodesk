@@ -1,5 +1,4 @@
-from django.contrib import admin
-from django.contrib import messages
+from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
@@ -8,10 +7,19 @@ from unfold.admin import ModelAdmin
 from unfold.forms import AdminPasswordChangeForm, UserChangeForm, UserCreationForm
 
 from core.forms import NotificationAdminForm
-from core.models import Building, CustomUser, Department, Profile, SiteSettings
-from core.models import Notification, NotificationRecipient, NotificationRole
-from core.notifications import publish_manual_notification, deactivate_notification
+from core.models import (
+    Building,
+    CustomUser,
+    Department,
+    Notification,
+    NotificationRecipient,
+    NotificationRole,
+    Profile,
+    SiteSettings,
+)
+from core.notifications import deactivate_notification, publish_manual_notification
 from core.roles import ROLE_NAMES
+
 
 @admin.register(CustomUser)
 class CustomUserAdmin(UserAdmin, ModelAdmin):
@@ -84,7 +92,7 @@ class NotificationRoleInline(admin.TabularInline):
     model = NotificationRole
     extra = 0
 
-    def formfield_for_foreignkey(self,db_field,request,**kwargs):
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == 'group':
             kwargs['queryset'] = Group.objects.filter(name__in=ROLE_NAMES)
 
@@ -142,7 +150,10 @@ class NotificationAdmin(admin.ModelAdmin):
 
     inlines = (NotificationRoleInline,)
 
-    actions = ('publish_selected', 'deactivate_selected',)
+    actions = (
+        'publish_selected',
+        'deactivate_selected',
+    )
 
     def has_module_permission(self, request):
         return bool(request.user.is_active and request.user.is_superuser)
@@ -173,10 +184,10 @@ class NotificationAdmin(admin.ModelAdmin):
                 count = publish_manual_notification(notification.pk)
 
             except ValidationError as exc:
-                self.message_user(request,f'{notification.title}: {"; ".join(exc.messages)}',level=messages.ERROR)
+                self.message_user(request, f'{notification.title}: {"; ".join(exc.messages)}', level=messages.ERROR)
 
             else:
-                self.message_user(request,f'{notification.title}: {count} کاربر هدف.',level=messages.SUCCESS)
+                self.message_user(request, f'{notification.title}: {count} کاربر هدف.', level=messages.SUCCESS)
 
     @admin.action(description='غیرفعال‌سازی اعلان‌های انتخاب‌شده')
     def deactivate_selected(self, request, queryset):
@@ -188,7 +199,7 @@ class NotificationAdmin(admin.ModelAdmin):
                 self.message_user(request, f'{notification.title}: {"; ".join(exc.messages)}', level=messages.ERROR)
 
             else:
-                self.message_user(request, f'{notification.title}: غیرفعال شد.',level=messages.SUCCESS)
+                self.message_user(request, f'{notification.title}: غیرفعال شد.', level=messages.SUCCESS)
 
 
 @admin.register(NotificationRecipient)

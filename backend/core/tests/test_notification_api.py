@@ -1,12 +1,12 @@
-from datetime import timedelta
+from rest_framework.test import APIClient
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
-from rest_framework.test import APIClient
+
+from datetime import timedelta
 
 from core.models import Notification, NotificationRecipient
-
 
 User = get_user_model()
 BASE_URL = '/api/v1/notifications'
@@ -75,9 +75,7 @@ class NotificationAPITests(TestCase):
         self.assign(self.create_notification())
         self.assign(self.create_notification())
 
-        response = self.client.get(
-            f'{BASE_URL}/unread-count'
-        )
+        response = self.client.get(f'{BASE_URL}/unread-count')
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['unread_count'], 2)
@@ -104,9 +102,7 @@ class NotificationAPITests(TestCase):
         notification = self.create_notification()
         recipient = self.assign(notification, self.other_user)
 
-        response = self.client.post(
-            f'{BASE_URL}/{notification.pk}/read'
-        )
+        response = self.client.post(f'{BASE_URL}/{notification.pk}/read')
 
         recipient.refresh_from_db()
 
@@ -117,9 +113,7 @@ class NotificationAPITests(TestCase):
         self.assign(self.create_notification())
         self.assign(self.create_notification())
 
-        response = self.client.post(
-            f'{BASE_URL}/read-all'
-        )
+        response = self.client.post(f'{BASE_URL}/read-all')
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['marked_read'], 2)

@@ -16,9 +16,13 @@ def emit_holiday_changed(sender, instance, using, **kwargs):
     holiday_id = instance.pk
 
     def publish_event():
-        holiday = Holiday.objects.using(using).filter(
-            pk=holiday_id,
-        ).first()
+        holiday = (
+            Holiday.objects.using(using)
+            .filter(
+                pk=holiday_id,
+            )
+            .first()
+        )
 
         if holiday is None:
             return

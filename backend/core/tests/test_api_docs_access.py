@@ -26,9 +26,7 @@ class ApiDocumentationPermissionTests(TestCase):
         )
         cls.superadmin.is_staff = True
         cls.superadmin.is_superuser = True
-        cls.superadmin.save(
-            update_fields=['is_staff', 'is_superuser']
-        )
+        cls.superadmin.save(update_fields=['is_staff', 'is_superuser'])
 
     def check_access(self, expected_status):
         for name in ('api-schema', 'api-docs'):

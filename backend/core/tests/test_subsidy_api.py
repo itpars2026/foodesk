@@ -1,4 +1,5 @@
 """Authenticated API and persistence tests for monthly subsidy preferences."""
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.test import TestCase
@@ -120,6 +121,7 @@ class SubsidyPreferenceApiTests(TestCase):
             set_monthly_subsidy(self.profile, year, month, False, now=before)
             self.assertFalse(effective_subsidy(self.profile, year, month))
             from django.core.exceptions import ValidationError
+
             with self.assertRaises(ValidationError):
                 set_monthly_subsidy(self.profile, year, month, True, now=deadline)
         self.assertFalse(effective_subsidy(self.profile, year, month))

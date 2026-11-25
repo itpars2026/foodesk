@@ -11,17 +11,10 @@ from core.models import SiteSettings
 def public_social_meta(request):
     config = SiteSettings.objects.filter(pk=1).first()
 
-    site_name = (
-        config.site_name if config and config.site_name
-        else "فود"
-    )
-    description = (
-        config.site_description
-        if config and config.site_description
-        else "سامانه رزرو غذای سازمانی"
-    )
+    site_name = config.site_name if config and config.site_name else 'فود'
+    description = config.site_description if config and config.site_description else 'سامانه رزرو غذای سازمانی'
 
-    title = f"{site_name} | {description}"
+    title = f'{site_name} | {description}'
     site_url = request.build_absolute_uri('/')
 
     html = format_html(
@@ -48,5 +41,5 @@ def public_social_meta(request):
 
     return HttpResponse(
         html,
-        content_type="text/html; charset=utf-8",
+        content_type='text/html; charset=utf-8',
     )
