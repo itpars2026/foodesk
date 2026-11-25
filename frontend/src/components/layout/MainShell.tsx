@@ -8,7 +8,6 @@ import {
   Sun,
   Wallet,
   UserRound,
-  Utensils,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
@@ -17,7 +16,7 @@ import { getNotificationUnreadCount } from '../../api/endpoints'
 import type { User } from '../../api/types'
 import { formatMoney } from '../../utils/format'
 import type { Page } from '../../app/navigation'
-import { canSeeReport, isManager } from '../../app/permissions'
+import { canSeeReport } from '../../app/permissions'
 import { iconButtonClass } from '../ui/buttonStyles'
 import BrandMark from './BrandMark'
 import NotificationBell from '../notifications/NotificationBell'
@@ -193,7 +192,6 @@ export default function MainShell({
 
   const items = [...navItems]
   if (canSeeReport(user)) items.push({ key: 'report', label: 'گزارش روزانه', icon: ChartNoAxesCombined })
-  if (isManager(user)) items.push({ key: 'catalog', label: 'مدیریت منو و اعلان‌ها', icon: Utensils })
 
   return (
     <div className="min-h-svh" dir="rtl">
