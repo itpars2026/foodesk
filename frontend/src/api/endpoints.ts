@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { Profile, ProfileOptions, User } from './types'
+import type { Profile, ProfileOptions, User, SubsidyPreferenceMonth, SubsidyPreferencesResponse, SubsidyPreferenceUpdate } from './types'
 
 export const getCsrf = () => api<{ csrf_token: string }>('/auth/csrf')
 export const getSession = () =>
@@ -57,4 +57,13 @@ export const markNotificationRead = (id: number) =>
 export const markAllNotificationsRead = () =>
   api<NotificationReadAllResponse>('/notifications/read-all', {
     method: 'POST',
+  })
+
+export const getSubsidyPreferences = () =>
+  api<SubsidyPreferencesResponse>('/auth/subsidy-preferences')
+
+export const updateSubsidyPreference = (data: SubsidyPreferenceUpdate) =>
+  api<SubsidyPreferenceMonth>('/auth/subsidy-preferences', {
+    method: 'PATCH',
+    body: JSON.stringify(data),
   })

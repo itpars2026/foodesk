@@ -7,13 +7,15 @@ from rest_framework.response import Response
 from django.contrib.auth import login as auth_login, logout as auth_logout, update_session_auth_hash
 from django.db.models import Q
 from django.middleware.csrf import get_token
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 
 from typing import ClassVar
 
-from core.models import Building, CustomUser, Department, SiteSettings, NotificationRecipient
+from core.models import Building, CustomUser, Department, NotificationRecipient, Profile, SiteSettings
+from core.paginations import NotificationPagination
 from core.permissions import HasChangedInitialPassword, IsHRFoodOrSuperAdmin
 from core.serializers import (
     ChangePasswordSerializer,
@@ -21,11 +23,17 @@ from core.serializers import (
     EmployeeSerializer,
     EmployeeUpdateSerializer,
     LoginSerializer,
+    MonthlySubsidyUpdateSerializer,
+    NotificationSerializer,
     ProfileSerializer,
     SessionUserSerializer,
-    NotificationSerializer,
 )
-from core.paginations import NotificationPagination
+from core.subsidy import (
+    can_change_subsidy,
+    current_and_next_jalali_month,
+    effective_subsidy,
+    subsidy_deadline,
+)
 
 
 class HealthViewSet(viewsets.ViewSet):
@@ -165,6 +173,69 @@ class AuthViewSet(viewsets.GenericViewSet):
         serializer.save()
 
         return Response(serializer.data)
+
+    @extend_schema(
+        request=inline_serializer(
+            name='MonthlySubsidyUpdateRequest',
+            fields={
+                'jalali_year': serializers.IntegerField(min_value=1),
+                'jalali_month': serializers.IntegerField(min_value=1, max_value=12),
+                'receive_subsidy': serializers.BooleanField(),
+            },
+        ),
+        responses={200: inline_serializer(
+            name='MonthlySubsidyMonthResponse',
+            fields={
+                'jalali_year': serializers.IntegerField(),
+                'jalali_month': serializers.IntegerField(),
+                'receive_subsidy': serializers.BooleanField(),
+                'can_change': serializers.BooleanField(),
+                'deadline': serializers.DateTimeField(),
+            },
+        )},
+    )
+    @action(
+        detail=False,
+        methods=['get', 'patch'],
+        url_path='subsidy-preferences',
+        permission_classes=[IsAuthenticated, HasChangedInitialPassword],
+    )
+    def subsidy_preferences(self, request):
+        profile = get_object_or_404(Profile, user=request.user)
+
+        if request.method == "GET":
+            months = current_and_next_jalali_month()
+            return Response({
+                "months": [
+                    self._subsidy_result(profile, year, month)
+                    for year, month in months
+                ],
+            })
+
+        serializer = MonthlySubsidyUpdateSerializer(
+            data=request.data,
+            context={"profile": profile},
+        )
+        serializer.is_valid(raise_exception=True)
+        preference = serializer.save()
+
+        return Response(
+            self._subsidy_result(
+                profile,
+                preference.jalali_year,
+                preference.jalali_month,
+            )
+        )
+
+    @staticmethod
+    def _subsidy_result(profile, year, month):
+        return {
+            "jalali_year": year,
+            "jalali_month": month,
+            "receive_subsidy": effective_subsidy(profile, year, month),
+            "can_change": can_change_subsidy(year, month),
+            "deadline": subsidy_deadline(year, month),
+        }
 
     @action(detail=False, methods=['get'], url_path='profile-options')
     def profile_options(self, request):

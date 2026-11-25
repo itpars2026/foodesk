@@ -152,3 +152,21 @@ export type NotificationReadAllResponse = {
   marked_read: number
   unread_count: number
 }
+
+export type SubsidyPreferenceMonth = {
+  jalali_year: number
+  jalali_month: number
+  receive_subsidy: boolean
+  can_change: boolean
+  deadline: string
+}
+
+export type SubsidyPreferencesResponse = {
+  months: SubsidyPreferenceMonth[]
+}
+
+export type SubsidyPreferenceUpdate = {
+  jalali_year: number
+  jalali_month: number
+  receive_subsidy: boolean
+}

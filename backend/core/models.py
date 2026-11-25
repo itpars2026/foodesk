@@ -1,6 +1,6 @@
+# ruff: noqa: RUF001, RUF012
 from django.conf import settings
-from django.contrib.auth.models import AbstractUser
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import AbstractUser, Group
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import F, Q
@@ -192,3 +192,34 @@ class NotificationRecipient(TimeStampedModel):
 
     def __str__(self) -> str:
         return f'{self.user.username} - {self.notification.title}'
+
+
+class MonthlySubsidyPreference(TimeStampedModel):
+    """An employee's explicit subsidy selection for one Jalali month."""
+
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='subsidy_preferences')
+
+    jalali_year = models.PositiveSmallIntegerField()
+    jalali_month = models.PositiveSmallIntegerField()
+
+    receive_subsidy = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ('-jalali_year', '-jalali_month')
+        constraints = [
+            models.UniqueConstraint(
+                fields=('profile', 'jalali_year', 'jalali_month'),
+                name='core_unique_monthly_subsidy',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(jalali_month__gte=1, jalali_month__lte=12),
+                name='core_valid_subsidy_month',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(jalali_year__gte=1),
+                name='core_valid_subsidy_year',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.profile_id}: {self.jalali_year}/{self.jalali_month:02d}'

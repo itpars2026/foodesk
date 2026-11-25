@@ -11,6 +11,7 @@ import {
 import type { Profile, ProfileOption, ProfileOptions } from '../api/types'
 import { api } from '../api/client'
 import type { User } from '../api/types'
+import SubsidyPreferencesPanel from '../components/SubsidyPreferencesPanel'
 import { getApiMessage } from '../utils/errors'
 import { isNumericOnlyPassword } from '../utils/password'
 
@@ -82,7 +83,7 @@ export default function ProfilePage() {
   const [passwordBusy, setPasswordBusy] = useState(false)
   const [passwordError, setPasswordError] = useState('')
   const [passwordSuccess, setPasswordSuccess] = useState('')
-  const [expandedSection, setExpandedSection] = useState<'details' | 'password' | 'create-employee' | null>(null)
+  const [expandedSection, setExpandedSection] = useState<'details' | 'subsidy' | 'password' | 'create-employee' | null>(null)
 
   const [employeeNumber, setEmployeeNumber] = useState('')
   const [employeeNationalId, setEmployeeNationalId] = useState('')
@@ -373,6 +374,29 @@ export default function ProfilePage() {
               </button>
             </div>
             </form>
+          </div>
+        )}
+      </article>
+
+      <article className="overflow-hidden rounded-xl border border-line bg-surface">
+        <h2 className="m-0">
+          <button
+            type="button"
+            id="profile-subsidy-trigger"
+            aria-expanded={expandedSection === 'subsidy'}
+            aria-controls="profile-subsidy-panel"
+            onClick={() => setExpandedSection((section) => section === 'subsidy' ? null : 'subsidy')}
+            className="flex min-h-14 w-full cursor-pointer items-center justify-between gap-3 bg-accent-soft px-4 py-3 text-right text-accent transition-colors hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-accent dark:hover:brightness-110 sm:px-5"
+          >
+            <span className="flex items-center gap-2 text-sm font-bold sm:text-base">
+              <ChevronDown aria-hidden="true" size={18} className={`transition-transform duration-200 motion-reduce:transition-none ${expandedSection === 'subsidy' ? '' : '-rotate-90'}`} />
+              تنظیمات یارانه غذا
+            </span>
+          </button>
+        </h2>
+        {expandedSection === 'subsidy' && (
+          <div id="profile-subsidy-panel" role="region" aria-labelledby="profile-subsidy-trigger" className="bg-raised/50 p-3 sm:p-4">
+            <SubsidyPreferencesPanel />
           </div>
         )}
       </article>

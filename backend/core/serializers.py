@@ -3,7 +3,7 @@ from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.core.exceptions import ValidationError as DjangoValidationError
 
-from core.models import Building, CustomUser, Department, Profile, NotificationRecipient
+from core.models import Building, CustomUser, Department, NotificationRecipient, Profile
 from core.services import create_employee, update_employee, update_profile_preferences
 from core.validators import validate_new_password
 
@@ -194,3 +194,24 @@ class NotificationSerializer(serializers.ModelSerializer):
 
     def get_is_read(self, obj):
         return obj.read_at is not None
+
+
+class MonthlySubsidyUpdateSerializer(serializers.Serializer):
+    jalali_year = serializers.IntegerField(min_value=1)
+    jalali_month = serializers.IntegerField(min_value=1, max_value=12)
+    receive_subsidy = serializers.BooleanField()
+
+    def create(self, validated_data):
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        from core.subsidy import set_monthly_subsidy
+
+        try:
+            return set_monthly_subsidy(
+                self.context["profile"],
+                year=validated_data["jalali_year"],
+                month=validated_data["jalali_month"],
+                receive_subsidy=validated_data["receive_subsidy"],
+            )
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({"detail": exc.messages}) from exc

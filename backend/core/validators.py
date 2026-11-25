@@ -4,9 +4,9 @@ from django.contrib.auth import password_validation
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
+from datetime import datetime
 from typing import TYPE_CHECKING
 
-from datetime import datetime
 from PIL import Image, UnidentifiedImageError
 
 if TYPE_CHECKING:
@@ -188,3 +188,15 @@ def validate_system_notification_payload(
         return
 
     raise ValidationError('برای اعلان غیرعمومی باید حداقل یک نقش انتخاب شود.')
+
+
+def validate_subsidy_change(year, month, receive_subsidy, *, now=None):
+    from django.core.exceptions import ValidationError
+
+    from core.subsidy import can_change_subsidy
+
+    if type(receive_subsidy) is not bool:
+        raise ValidationError("وضعیت یارانه نامعتبر است.")
+
+    if not can_change_subsidy(year, month, now=now):
+        raise ValidationError("مهلت تغییر وضعیت یارانه به پایان رسیده است.")
