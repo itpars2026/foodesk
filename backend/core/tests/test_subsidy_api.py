@@ -1,5 +1,6 @@
 """Authenticated API and persistence tests for monthly subsidy preferences."""
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.test import TestCase
 from django.urls import reverse
 
@@ -21,11 +22,38 @@ class SubsidyPreferenceApiTests(TestCase):
         User = get_user_model()
         cls.user = User.objects.create_user(username='subs-101', password='ExampleStrong123!')
         cls.profile, _ = Profile.objects.get_or_create(user=cls.user)
+        hr_group, _ = Group.objects.get_or_create(name='hrFood')
+        cls.user.groups.add(hr_group)
+        cls.admin = User.objects.create_superuser(
+            username='subs-admin',
+            password='ExampleStrong123!',
+        )
+        Profile.objects.get_or_create(user=cls.admin)
         cls.other = User.objects.create_user(username='subs-102', password='ExampleStrong123!')
         cls.other_profile, _ = Profile.objects.get_or_create(user=cls.other)
 
     def setUp(self):
         self.url = reverse('auth-subsidy-preferences')
+
+    def test_employee_cannot_access_subsidy(self):
+        self.client.force_login(self.other)
+        self.assertEqual(self.client.get(self.url).status_code, 403)
+        self.assertEqual(
+            self.client.patch(
+                self.url,
+                {
+                    'jalali_year': 1405,
+                    'jalali_month': 9,
+                    'receive_subsidy': False,
+                },
+                content_type='application/json',
+            ).status_code,
+            403,
+        )
+
+    def test_superadmin_can_access_subsidy(self):
+        self.client.force_login(self.admin)
+        self.assertEqual(self.client.get(self.url).status_code, 200)
 
     def test_unauthenticated_cannot_read_or_write(self):
         self.assertIn(self.client.get(self.url).status_code, (401, 403))

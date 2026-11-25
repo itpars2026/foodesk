@@ -378,6 +378,7 @@ export default function ProfilePage() {
         )}
       </article>
 
+      {canCreateEmployee && (
       <article className="overflow-hidden rounded-xl border border-line bg-surface">
         <h2 className="m-0">
           <button
@@ -400,6 +401,7 @@ export default function ProfilePage() {
           </div>
         )}
       </article>
+      )}
 
       <article className="overflow-hidden rounded-xl border border-line bg-surface">
         <h2 className="m-0">

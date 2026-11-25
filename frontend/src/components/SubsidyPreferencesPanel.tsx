@@ -121,7 +121,7 @@ export default function SubsidyPreferencesPanel() {
                 {checked ? 'وضعیت انتخابی: دریافت یارانه' : 'وضعیت انتخابی: پرداخت آزاد'}
               </p>
               <p className="mt-2 text-xs leading-6 text-muted">
-                {month.can_change ? `مهلت تغییر: ${readableDeadline(month.deadline)}` : 'مهلت تغییر این ماه به پایان رسیده است.'}
+                {month.can_change ? `آخرین مهلت تغییر: ${readableDeadline(month.deadline)}` : 'مهلت تغییر این ماه به پایان رسیده است.'}
               </p>
               <div className="mt-3 flex justify-end">
                 <button

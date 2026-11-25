@@ -198,7 +198,11 @@ class AuthViewSet(viewsets.GenericViewSet):
         detail=False,
         methods=['get', 'patch'],
         url_path='subsidy-preferences',
-        permission_classes=[IsAuthenticated, HasChangedInitialPassword],
+        permission_classes=[
+            IsAuthenticated,
+            HasChangedInitialPassword,
+            IsHRFoodOrSuperAdmin,
+        ],
     )
     def subsidy_preferences(self, request):
         profile = get_object_or_404(Profile, user=request.user)
