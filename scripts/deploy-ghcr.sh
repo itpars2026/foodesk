@@ -2,7 +2,10 @@
 set -Eeuo pipefail
 umask 077
 
-cd /opt/food
+# Resolve the repository root from this script's location.
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+cd "$PROJECT_DIR"
 
 SHA="${1:?Usage: deploy-ghcr.sh COMMIT_SHA}"
 IMAGE_SOURCE="${IMAGE_SOURCE:-registry}"
