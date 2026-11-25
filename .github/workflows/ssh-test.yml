@@ -13,6 +13,13 @@ jobs:
     timeout-minutes: 3
 
     steps:
+      - name: Inspect SSH host fingerprints
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          set -euo pipefail
+          ssh-keyscan -T 10 -p 22 -t rsa,ecdsa,ed25519 "$VPS_HOST" \
+            2>/dev/null | ssh-keygen -lf - -E sha256
       - name: Connect to VPS
         uses: appleboy/ssh-action@v1
         with:
