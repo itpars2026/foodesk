@@ -11,7 +11,9 @@ on:
       - 'docker-compose.yaml'
       - 'compose.yml'
       - 'compose.yaml'
-      - '.github/workflows/**'
+      - '.github/workflows/deploy.yml'
+      - '.github/workflows/backend-ci.yml'
+      - '.github/workflows/frontend-ci.yml'
 
   pull_request:
     branches:
@@ -23,7 +25,9 @@ on:
       - 'docker-compose.yaml'
       - 'compose.yml'
       - 'compose.yaml'
-      - '.github/workflows/**'
+      - '.github/workflows/deploy.yml'
+      - '.github/workflows/backend-ci.yml'
+      - '.github/workflows/frontend-ci.yml'
 
   workflow_dispatch:
 
