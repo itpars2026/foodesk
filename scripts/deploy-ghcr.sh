@@ -5,55 +5,113 @@ umask 077
 cd /opt/food
 
 SHA="${1:?Usage: deploy-ghcr.sh COMMIT_SHA}"
+IMAGE_SOURCE="${IMAGE_SOURCE:-registry}"
 REPO="ghcr.io/itpars2026"
 BACKUP_DIR="/opt/food/backups"
-LOCK_FILE="/tmp/foodesk-deploy.lock"
 
 if [[ ! "$SHA" =~ ^[0-9a-f]{40}$ ]]; then
-  echo "ERROR: Invalid commit SHA"
+  echo "ERROR: Invalid release SHA"
   exit 1
 fi
 
-exec 9>"$LOCK_FILE"
+if [[ "$IMAGE_SOURCE" != local && "$IMAGE_SOURCE" != registry ]]; then
+  echo "ERROR: IMAGE_SOURCE must be local or registry"
+  exit 1
+fi
+
+DEPLOY_DRY_RUN="${DEPLOY_DRY_RUN:-0}"
+
+if [[ "$DEPLOY_DRY_RUN" != 0 && "$DEPLOY_DRY_RUN" != 1 ]]; then
+  echo "ERROR: DEPLOY_DRY_RUN must be 0 or 1"
+  exit 1
+fi
+
+if [[ "$DEPLOY_DRY_RUN" == 1 && "$IMAGE_SOURCE" != local ]]; then
+  echo "ERROR: Dry-run currently supports IMAGE_SOURCE=local only"
+  exit 1
+fi
+
+exec 9>/tmp/foodesk-deploy.lock
 flock -n 9 || {
   echo "ERROR: Another deployment is running"
   exit 1
 }
 
-echo "=== DEPLOY FOODESK ==="
-echo "Commit: $SHA"
+echo "=== FOODESK DEPLOYMENT ==="
+echo "Release: $SHA"
+echo "Image source: $IMAGE_SOURCE"
 
-# Preconditions
 test "$(git branch --show-current)" = main
-test -z "$(git status --porcelain)"
 
-# Confirm the published commit is still remote main.
-git \
-  -c credential.helper='!gh auth git-credential' \
-  -c credential.interactive=never \
-  fetch origin main
+# Local deployments must use the checked-out release.
+# The deployment script may have uncommitted changes,
+# but the application source is not switched or merged.
+if [[ "$IMAGE_SOURCE" == local ]]; then
+  # The release commit must exist in the local repository.
+  git cat-file -e "${SHA}^{commit}" || {
+    echo "ERROR: Release commit not found locally"
+    exit 1
+  }
 
-REMOTE_SHA="$(git rev-parse origin/main)"
+  # Allow a newer deployment script without changing app sources.
+  git merge-base --is-ancestor "$SHA" HEAD || {
+    echo "ERROR: Release is not an ancestor of local HEAD"
+    exit 1
+  }
 
-if [[ "$REMOTE_SHA" != "$SHA" ]]; then
-  echo "ERROR: Remote main does not match deployment SHA"
-  exit 1
+  if ! git diff --quiet "$SHA" HEAD -- . \
+    ':(exclude)scripts/deploy-ghcr.sh'; then
+    echo "ERROR: Application source differs from release"
+    exit 1
+  fi
+
+  # No staged or unstaged application changes are allowed.
+  if ! git diff --quiet -- . \
+    ':(exclude)scripts/deploy-ghcr.sh'; then
+    echo "ERROR: Uncommitted application changes"
+    exit 1
+  fi
+
+  if ! git diff --cached --quiet -- . \
+    ':(exclude)scripts/deploy-ghcr.sh'; then
+    echo "ERROR: Staged application changes"
+    exit 1
+  fi
+
+  # Reject untracked files outside the deployment script.
+  if [[ -n "$(git ls-files --others --exclude-standard)" ]]; then
+    echo "ERROR: Untracked files found"
+    git ls-files --others --exclude-standard
+    exit 1
+  fi
+else
+  test -z "$(git status --porcelain)" || {
+    echo "ERROR: Registry deployment requires a clean worktree"
+    exit 1
+  }
+
+  git \
+    -c credential.helper='!gh auth git-credential' \
+    -c credential.interactive=never \
+    fetch origin main
+
+  test "$(git rev-parse origin/main)" = "$SHA" || {
+    echo "ERROR: GitHub main does not match release SHA"
+    exit 1
+  }
+
+  git merge --ff-only "$SHA"
 fi
 
-git merge-base --is-ancestor HEAD "$SHA" || {
-  echo "ERROR: Deployment is not a fast-forward"
-  exit 1
-}
-
-# Record the actual currently running images.
+# Save the actual running image references.
 OLD_BACKEND="$(docker inspect -f '{{.Config.Image}}' backend)"
 OLD_FRONTEND="$(docker inspect -f '{{.Config.Image}}' frontend)"
 
-docker image inspect "$OLD_BACKEND" >/dev/null
-docker image inspect "$OLD_FRONTEND" >/dev/null
+OLD_BACKEND_ID="$(docker image inspect -f '{{.Id}}' "$OLD_BACKEND")"
+OLD_FRONTEND_ID="$(docker image inspect -f '{{.Id}}' "$OLD_FRONTEND")"
 
-echo "Previous backend: $OLD_BACKEND"
-echo "Previous frontend: $OLD_FRONTEND"
+echo "Old backend: $OLD_BACKEND"
+echo "Old frontend: $OLD_FRONTEND"
 
 export BACKEND_IMAGE_REPOSITORY="$REPO/foodesk-backend"
 export FRONTEND_IMAGE_REPOSITORY="$REPO/foodesk-frontend"
@@ -63,22 +121,52 @@ export FRONTEND_IMAGE_TAG="$SHA"
 NEW_BACKEND="$BACKEND_IMAGE_REPOSITORY:$SHA"
 NEW_FRONTEND="$FRONTEND_IMAGE_REPOSITORY:$SHA"
 
-echo "=== PULL RELEASE IMAGES ==="
-docker pull "$NEW_BACKEND"
-docker pull "$NEW_FRONTEND"
+if [[ "$IMAGE_SOURCE" == registry ]]; then
+  echo "=== PULL RELEASE IMAGES ==="
+  docker pull "$NEW_BACKEND"
+  docker pull "$NEW_FRONTEND"
+else
+  echo "=== USE LOCAL IMAGES ==="
+fi
 
-docker image inspect "$NEW_BACKEND" >/dev/null
-docker image inspect "$NEW_FRONTEND" >/dev/null
+NEW_BACKEND_ID="$(docker image inspect -f '{{.Id}}' "$NEW_BACKEND")"
+NEW_FRONTEND_ID="$(docker image inspect -f '{{.Id}}' "$NEW_FRONTEND")"
 
-echo "=== PREPARE SOURCE ==="
-git merge --ff-only "$SHA"
+echo "Backend image ID: $NEW_BACKEND_ID"
+echo "Frontend image ID: $NEW_FRONTEND_ID"
 
 docker compose config --quiet
 
-echo "=== VERIFY DATABASE HEALTH ==="
+echo "=== DATABASE HEALTH ==="
 test "$(docker inspect -f '{{.State.Health.Status}}' db)" = healthy
 
-echo "=== BACKUP POSTGRESQL ==="
+echo "=== MIGRATION CHECK ==="
+
+docker compose run --rm \
+  --no-deps \
+  --pull never \
+  backend python manage.py migrate --plan
+
+# Django exits nonzero if unapplied migrations exist.
+docker compose run --rm \
+  --no-deps \
+  --pull never \
+  backend python manage.py migrate --check || {
+    echo "ERROR: Pending migrations require separate approval"
+    exit 1
+  }
+
+if [[ "$DEPLOY_DRY_RUN" == 1 ]]; then
+  echo "=== DRY-RUN COMPLETED ==="
+  echo "Release: $SHA"
+  echo "Backend image: $NEW_BACKEND"
+  echo "Frontend image: $NEW_FRONTEND"
+  echo "No application containers were replaced."
+  echo "No database migration was applied."
+  exit 0
+fi
+
+echo "=== BACKUP DATABASE ==="
 mkdir -p "$BACKUP_DIR"
 
 STAMP="$(date -u +%Y%m%d_%H%M%S)"
@@ -95,55 +183,56 @@ docker compose exec -T db pg_restore -l \
 
 chmod 600 "$BACKUP"
 
-echo "Backup validated: $BACKUP"
+echo "Backup archive checked: $BACKUP"
 
 DEPLOY_STARTED=0
-MIGRATIONS_ATTEMPTED=0
 
-rollback() {
-  local exit_code=$?
+on_exit() {
+  local result=$?
+  trap - EXIT
+  set +e
 
-  trap - ERR EXIT
+  if [[ "$result" -ne 0 && "$DEPLOY_STARTED" -eq 1 ]]; then
+    echo "=== DEPLOYMENT FAILED: ATTEMPTING ROLLBACK ==="
 
-  if [[ "$exit_code" -ne 0 ]]; then
-    echo "ERROR: Deployment failed with exit code $exit_code"
+    export BACKEND_IMAGE_REPOSITORY="${OLD_BACKEND%:*}"
+    export FRONTEND_IMAGE_REPOSITORY="${OLD_FRONTEND%:*}"
+    export BACKEND_IMAGE_TAG="${OLD_BACKEND##*:}"
+    export FRONTEND_IMAGE_TAG="${OLD_FRONTEND##*:}"
 
-    if [[ "$DEPLOY_STARTED" -eq 1 ]]; then
-      echo "=== RESTORE PREVIOUS APPLICATION IMAGES ==="
+    docker compose up -d \
+      --no-deps \
+      --no-build \
+      --pull never \
+      --wait \
+      --wait-timeout 120 \
+      backend frontend
 
-      export BACKEND_IMAGE_REPOSITORY="${OLD_BACKEND%:*}"
-      export FRONTEND_IMAGE_REPOSITORY="${OLD_FRONTEND%:*}"
-      export BACKEND_IMAGE_TAG="${OLD_BACKEND##*:}"
-      export FRONTEND_IMAGE_TAG="${OLD_FRONTEND##*:}"
+    rollback_result=$?
 
-      docker compose up -d \
-        --no-deps \
-        --no-build \
-        --wait \
-        --wait-timeout 120 \
-        backend frontend || {
-          echo "CRITICAL: Application rollback failed"
-        }
-    fi
+    CURRENT_BACKEND_ID="$(docker inspect -f '{{.Image}}' backend 2>/dev/null)"
+    CURRENT_FRONTEND_ID="$(docker inspect -f '{{.Image}}' frontend 2>/dev/null)"
 
-    if [[ "$MIGRATIONS_ATTEMPTED" -eq 1 ]]; then
-      echo "WARNING: Database migrations were attempted."
-      echo "Database was NOT restored automatically."
-      echo "Backup: $BACKUP"
-      echo "Review schema compatibility before further action."
+    if [[ "$rollback_result" -eq 0 &&
+          "$CURRENT_BACKEND_ID" == "$OLD_BACKEND_ID" &&
+          "$CURRENT_FRONTEND_ID" == "$OLD_FRONTEND_ID" ]]; then
+      echo "Application rollback verified"
+    else
+      echo "CRITICAL: Application rollback was not verified"
+      echo "Manual intervention required"
     fi
   fi
 
-  exit "$exit_code"
+  if [[ "$result" -ne 0 ]]; then
+    echo "Deployment failed."
+    echo "Database was NOT restored automatically."
+    echo "Backup: $BACKUP"
+  fi
+
+  exit "$result"
 }
 
-trap rollback EXIT
-
-echo "=== RUN DATABASE MIGRATIONS ==="
-MIGRATIONS_ATTEMPTED=1
-
-docker compose run --rm --no-deps \
-  backend python manage.py migrate --noinput
+trap on_exit EXIT
 
 echo "=== DEPLOY APPLICATION ==="
 DEPLOY_STARTED=1
@@ -151,24 +240,25 @@ DEPLOY_STARTED=1
 docker compose up -d \
   --no-deps \
   --no-build \
+  --pull never \
   --wait \
   --wait-timeout 120 \
   backend frontend
 
-echo "=== FINAL HEALTH CHECK ==="
+echo "=== VERIFY CONTAINERS ==="
 
 for service in db backend frontend; do
-  status="$(docker inspect -f '{{.State.Health.Status}}' "$service")"
+  health="$(docker inspect -f '{{.State.Health.Status}}' "$service")"
+  echo "$service: $health"
 
-  echo "$service: $status"
-
-  test "$status" = healthy
+  test "$health" = healthy
 done
 
-test "$(docker inspect -f '{{.Config.Image}}' backend)" = "$NEW_BACKEND"
-test "$(docker inspect -f '{{.Config.Image}}' frontend)" = "$NEW_FRONTEND"
+test "$(docker inspect -f '{{.Image}}' backend)" = "$NEW_BACKEND_ID"
+test "$(docker inspect -f '{{.Image}}' frontend)" = "$NEW_FRONTEND_ID"
 
-echo "=== DEPLOYMENT COMPLETED ==="
+echo "=== DEPLOYMENT SUCCESSFUL ==="
+
 docker compose ps
 
 echo "Release: $SHA"
