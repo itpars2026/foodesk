@@ -59,7 +59,7 @@ class Profile(models.Model):
 class SiteSettings(TimeStampedModel):
     """Single database-backed configuration for public site branding."""
 
-    site_name = models.CharField(max_length=100, default='فودسک')
+    site_name = models.CharField(max_length=100, default='فود')
     site_name_en = models.CharField(max_length=100, default='Foodesk')
     site_description = models.CharField(
         max_length=255,

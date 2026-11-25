@@ -75,7 +75,7 @@ class ConfigViewSet(viewsets.ViewSet):
         if config is None:
             return Response(
                 {
-                    'site_name': 'فودسک',
+                    'site_name': 'فود',
                     'site_name_en': 'Foodesk',
                     'site_description': 'سامانه رزرو غذای سازمانی',
                     'logo_url': None,

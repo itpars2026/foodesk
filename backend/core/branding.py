@@ -5,7 +5,7 @@ def _site_name() -> str:
     from core.models import SiteSettings
 
     name = SiteSettings.objects.filter(pk=1).values_list('site_name', flat=True).first()
-    return name or 'فودسک'
+    return name or 'فود'
 
 
 def admin_site_title(request) -> str:

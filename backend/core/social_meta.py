@@ -13,7 +13,7 @@ def public_social_meta(request):
 
     site_name = (
         config.site_name if config and config.site_name
-        else "فودسک"
+        else "فود"
     )
     description = (
         config.site_description
@@ -22,6 +22,7 @@ def public_social_meta(request):
     )
 
     title = f"{site_name} | {description}"
+    site_url = request.build_absolute_uri('/')
 
     html = format_html(
         """
@@ -31,7 +32,7 @@ def public_social_meta(request):
 <meta property="og:site_name" content="{}" />
 <meta property="og:title" content="{}" />
 <meta property="og:description" content="{}" />
-<meta property="og:url" content="https://foodesk.ir/" />
+<meta property="og:url" content="{}" />
 <meta name="twitter:card" content="summary" />
 <meta name="twitter:title" content="{}" />
 <meta name="twitter:description" content="{}" />
@@ -40,6 +41,7 @@ def public_social_meta(request):
         site_name,
         title,
         description,
+        site_url,
         title,
         description,
     )
