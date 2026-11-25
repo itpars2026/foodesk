@@ -26,8 +26,26 @@ if [[ "$DEPLOY_DRY_RUN" != 0 && "$DEPLOY_DRY_RUN" != 1 ]]; then
   exit 1
 fi
 
-if [[ "$DEPLOY_DRY_RUN" == 1 && "$IMAGE_SOURCE" != local ]]; then
-  echo "ERROR: Dry-run currently supports IMAGE_SOURCE=local only"
+# Production must use the CI-authorized registry release path.
+if [[ "$DEPLOY_DRY_RUN" == 0 && "$IMAGE_SOURCE" != registry ]]; then
+  echo "ERROR: Production requires IMAGE_SOURCE=registry"
+  exit 1
+fi
+
+# Production deployment is disabled by default.
+# Dry-runs do not replace running containers.
+ALLOW_PRODUCTION_DEPLOY="${ALLOW_PRODUCTION_DEPLOY:-false}"
+
+if [[ "$ALLOW_PRODUCTION_DEPLOY" != true &&
+      "$ALLOW_PRODUCTION_DEPLOY" != false ]]; then
+  echo "ERROR: ALLOW_PRODUCTION_DEPLOY must be true or false"
+  exit 1
+fi
+
+if [[ "$DEPLOY_DRY_RUN" != 1 &&
+      "$ALLOW_PRODUCTION_DEPLOY" != true ]]; then
+  echo "ERROR: Production deployment is disabled"
+  echo "Set ALLOW_PRODUCTION_DEPLOY=true explicitly to authorize it"
   exit 1
 fi
 
@@ -53,55 +71,75 @@ if [[ "$IMAGE_SOURCE" == local ]]; then
     exit 1
   }
 
-  # Allow a newer deployment script without changing app sources.
+  # Local images must match the application and Compose source.
+  # CI/CD script and workflow changes are allowed during dry-runs.
+  APP_PATHS=(
+    backend
+    frontend
+    docker-compose.yml
+    docker-compose.yaml
+    compose.yml
+    compose.yaml
+  )
+
+  if ! git diff --quiet "$SHA" HEAD -- "${APP_PATHS[@]}"; then
+    echo "ERROR: Application source differs from release"
+    exit 1
+  fi
+
+  if ! git diff --quiet -- "${APP_PATHS[@]}" ||
+     ! git diff --cached --quiet -- "${APP_PATHS[@]}"; then
+    echo "ERROR: Uncommitted application changes"
+    exit 1
+  fi
+
+  if [[ -n "$(git ls-files --others --exclude-standard -- "${APP_PATHS[@]}")" ]]; then
+    echo "ERROR: Untracked application files found"
+    exit 1
+  fi
+
+else
+  # Release must exist in the locally fetched Git history.
+  # Deployment must never switch the active checkout.
+  git cat-file -e "${SHA}^{commit}" || {
+    echo "ERROR: Release commit not found locally"
+    exit 1
+  }
+
   git merge-base --is-ancestor "$SHA" HEAD || {
     echo "ERROR: Release is not an ancestor of local HEAD"
     exit 1
   }
 
-  if ! git diff --quiet "$SHA" HEAD -- . \
-    ':(exclude)scripts/deploy-ghcr.sh'; then
-    echo "ERROR: Application source differs from release"
-    exit 1
-  fi
-
-  # No staged or unstaged application changes are allowed.
-  if ! git diff --quiet -- . \
-    ':(exclude)scripts/deploy-ghcr.sh'; then
-    echo "ERROR: Uncommitted application changes"
-    exit 1
-  fi
-
-  if ! git diff --cached --quiet -- . \
-    ':(exclude)scripts/deploy-ghcr.sh'; then
-    echo "ERROR: Staged application changes"
-    exit 1
-  fi
-
-  # Reject untracked files outside the deployment script.
-  if [[ -n "$(git ls-files --others --exclude-standard)" ]]; then
-    echo "ERROR: Untracked files found"
-    git ls-files --others --exclude-standard
-    exit 1
-  fi
-else
-  test -z "$(git status --porcelain)" || {
-    echo "ERROR: Registry deployment requires a clean worktree"
-    exit 1
-  }
-
-  git \
-    -c credential.helper='!gh auth git-credential' \
-    -c credential.interactive=never \
-    fetch origin main
-
-  test "$(git rev-parse origin/main)" = "$SHA" || {
-    echo "ERROR: GitHub main does not match release SHA"
-    exit 1
-  }
-
-  git merge --ff-only "$SHA"
 fi
+
+# Fail closed if runtime deployment configuration differs
+# between the image release and the current checkout.
+echo "=== VERIFY RELEASE CONFIG COMPATIBILITY ==="
+
+RUNTIME_PATHS=(
+  docker-compose.yml
+  docker-compose.yaml
+  compose.yml
+  compose.yaml
+  backend/config/settings
+  frontend/nginx.conf
+)
+
+if ! git diff --quiet "$SHA" HEAD -- "${RUNTIME_PATHS[@]}"; then
+  echo "ERROR: Runtime configuration differs from release"
+  echo "Review the following files before deployment:"
+  git diff --name-only "$SHA" HEAD -- "${RUNTIME_PATHS[@]}"
+  exit 1
+fi
+
+if ! git diff --quiet -- "${RUNTIME_PATHS[@]}" ||
+   ! git diff --cached --quiet -- "${RUNTIME_PATHS[@]}"; then
+  echo "ERROR: Uncommitted runtime configuration changes"
+  exit 1
+fi
+
+echo "RELEASE_CONFIG_COMPATIBLE=YES"
 
 # Save the actual running image references.
 OLD_BACKEND="$(docker inspect -f '{{.Config.Image}}' backend)"
@@ -122,9 +160,17 @@ NEW_BACKEND="$BACKEND_IMAGE_REPOSITORY:$SHA"
 NEW_FRONTEND="$FRONTEND_IMAGE_REPOSITORY:$SHA"
 
 if [[ "$IMAGE_SOURCE" == registry ]]; then
-  echo "=== PULL RELEASE IMAGES ==="
-  docker pull "$NEW_BACKEND"
-  docker pull "$NEW_FRONTEND"
+  echo "=== VERIFY GITHUB CI RELEASE ==="
+
+  python3 scripts/release/verify-ci.py "$SHA"
+
+  if [[ "$DEPLOY_DRY_RUN" == 1 ]]; then
+    echo "=== CHECK VERIFIED RELEASE (NO LOAD) ==="
+    bash scripts/release/load-release.sh "$SHA" check
+  else
+    echo "=== LOAD VERIFIED RELEASE IMAGES ==="
+    bash scripts/release/load-release.sh "$SHA" load
+  fi
 else
   echo "=== USE LOCAL IMAGES ==="
 fi
@@ -213,12 +259,19 @@ on_exit() {
     CURRENT_BACKEND_ID="$(docker inspect -f '{{.Image}}' backend 2>/dev/null)"
     CURRENT_FRONTEND_ID="$(docker inspect -f '{{.Image}}' frontend 2>/dev/null)"
 
+    BACKEND_HEALTH="$(docker inspect -f '{{.State.Health.Status}}' backend 2>/dev/null)"
+    FRONTEND_HEALTH="$(docker inspect -f '{{.State.Health.Status}}' frontend 2>/dev/null)"
+
     if [[ "$rollback_result" -eq 0 &&
           "$CURRENT_BACKEND_ID" == "$OLD_BACKEND_ID" &&
-          "$CURRENT_FRONTEND_ID" == "$OLD_FRONTEND_ID" ]]; then
-      echo "Application rollback verified"
+          "$CURRENT_FRONTEND_ID" == "$OLD_FRONTEND_ID" &&
+          "$BACKEND_HEALTH" == healthy &&
+          "$FRONTEND_HEALTH" == healthy ]]; then
+      echo "ROLLBACK_VERIFIED=YES"
     else
       echo "CRITICAL: Application rollback was not verified"
+      echo "Backend health: $BACKEND_HEALTH"
+      echo "Frontend health: $FRONTEND_HEALTH"
       echo "Manual intervention required"
     fi
   fi

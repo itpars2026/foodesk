@@ -1,6 +1,7 @@
 name: Deployment Scripts CI
 
 on:
+  workflow_call:
   push:
     branches:
       - main
@@ -38,6 +39,9 @@ jobs:
         run: |
           find scripts -type f -name '*.sh' -print0 |
             xargs -0 -r -n 1 bash -n
+
+      - name: Deployment safety regression tests
+        run: bash scripts/test-deploy-safety.sh
 
       - name: ShellCheck
         run: |

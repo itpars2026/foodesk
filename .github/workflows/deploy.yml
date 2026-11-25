@@ -11,6 +11,7 @@ on:
       - 'docker-compose.yaml'
       - 'compose.yml'
       - 'compose.yaml'
+      - 'scripts/**'
       - '.github/workflows/deploy.yml'
       - '.github/workflows/backend-ci.yml'
       - '.github/workflows/frontend-ci.yml'
@@ -25,6 +26,7 @@ on:
       - 'docker-compose.yaml'
       - 'compose.yml'
       - 'compose.yaml'
+      - 'scripts/**'
       - '.github/workflows/deploy.yml'
       - '.github/workflows/backend-ci.yml'
       - '.github/workflows/frontend-ci.yml'
@@ -47,6 +49,10 @@ jobs:
     name: Frontend CI
     uses: ./.github/workflows/frontend-ci.yml
 
+  scripts:
+    name: Deployment Scripts CI
+    uses: ./.github/workflows/scripts-ci.yml
+
   publish:
     name: Publish | ${{ matrix.service }}
     runs-on: ubuntu-latest
@@ -54,6 +60,7 @@ jobs:
     needs:
       - backend
       - frontend
+      - scripts
 
     if: >-
       github.event_name == 'push' &&
