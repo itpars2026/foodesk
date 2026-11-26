@@ -204,32 +204,6 @@ export default function MainShell({
           {items.map((item) => <NavButton key={item.key} item={item} active={page === item.key} onClick={() => onNavigate(item.key)} />)}
         </nav>
 
-        <div
-          className="mt-5 rounded-xl border border-line bg-raised px-3 py-3"
-          aria-label="هزینه رزروهای ماه جاری"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <span className="inline-flex items-center gap-2 text-xs font-semibold text-ink">
-              <Wallet size={16} aria-hidden="true" />
-              کیف پول
-            </span>
-            <span className="text-[11px] text-muted">
-              {walletMonth ?? 'ماه جاری'}
-            </span>
-          </div>
-
-          <p
-            className="mb-0 mt-3 text-sm font-bold text-ink"
-            aria-live="polite"
-          >
-            {walletAmount}
-          </p>
-
-          <p className="mb-0 mt-2 text-[11px] text-muted">
-            هزینه رزروهای این ماه
-          </p>
-        </div>
-
         <div className="mt-auto border-t border-line pt-[15px]">
           <div className="grid grid-cols-[10px_1fr] gap-x-2 gap-y-[3px] px-[6px] pt-[10px] pb-4 text-xs text-muted"><span className="row-span-2 mt-1 h-2 w-2 rounded-full bg-positive" /> <span>کد پرسنلی</span><strong className="col-start-2 text-sm text-ink">{user.username}</strong></div>
           <button className="flex min-h-[42px] w-full cursor-pointer items-center gap-[10px] border-0 bg-transparent px-[7px] text-[13px] text-muted hover:text-negative" onClick={onLogout} type="button"><LogOut size={17} /> خروج از حساب</button>
@@ -274,6 +248,21 @@ export default function MainShell({
           <div className="flex items-center gap-[7px]">{branding.site_name} <ChevronLeft aria-hidden="true" size={14} /> {branding.site_description}</div>
           <div className="flex items-center gap-3">
             <div>کد پرسنلی <strong className="ms-[5px] text-ink">{user.username}</strong></div>
+            <div
+              className="flex items-center gap-2 rounded-lg border border-line bg-raised px-3 py-1.5"
+              aria-label="هزینه رزروهای ماه جاری"
+            >
+              <Wallet size={17} className="shrink-0 text-accent" aria-hidden="true" />
+              <div className="flex flex-col gap-0.5">
+                <span className="text-xs font-semibold text-ink" aria-live="polite">
+                  {walletAmount}
+                </span>
+                <span className="text-[10px] text-muted">
+                  کیف پول · {walletMonth ?? 'ماه جاری'}
+                </span>
+              </div>
+            </div>
+
             <NotificationBell
           unreadCount={notificationUnreadCount}
           onUnreadCountChange={updateNotificationUnreadCount}
