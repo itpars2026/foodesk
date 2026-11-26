@@ -8,6 +8,7 @@ import JalaliDatePicker, { jalaliMonthStartISO } from '../components/ui/JalaliDa
 import { buttonClass } from '../components/ui/buttonStyles'
 import { dateToIso, formatDate } from '../utils/date'
 import { getApiMessage } from '../utils/errors'
+import { formatNumber as number } from '../utils/format'
 
 type BuildingReportDay = {
   date: string
@@ -26,11 +27,6 @@ type BuildingReportResponse = {
   buildings: BuildingReport[]
 }
 
-const numberFormatter = new Intl.NumberFormat('fa-IR')
-
-function number(value: number): string {
-  return numberFormatter.format(value)
-}
 
 export default function ReportPage() {
   const today = dateToIso(new Date())

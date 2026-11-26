@@ -19,7 +19,7 @@ import type { CatalogQuantities } from '../components/ui/CatalogMultiSelect'
 import { buttonClass, iconButtonClass } from '../components/ui/buttonStyles'
 import { addDays, dateToIso, formatDate, formatWeekday, getWeekStart } from '../utils/date'
 import { getApiMessage } from '../utils/errors'
-import { formatMoney } from '../utils/format'
+import { formatMoney, formatNumber } from '../utils/format'
 
 function initialQuantities(
   entries: { id: number; quantity: number }[] | undefined,
@@ -171,7 +171,7 @@ export default function WeekPage() {
             setWeekStart(currentWeek)
           }} type="button">هفته جاری</button>
         </div>
-        <div className="flex items-baseline gap-[7px] text-xs text-muted max-[680px]:self-start"><strong className="text-xl text-accent">{new Intl.NumberFormat('fa-IR').format(reservationCount)}</strong><span>رزرو فعال</span></div>
+        <div className="flex items-baseline gap-[7px] text-xs text-muted max-[680px]:self-start"><strong className="text-xl text-accent">{formatNumber(reservationCount)}</strong><span>رزرو فعال</span></div>
       </div>
 
       <div className="my-3 mt-[18px] flex flex-wrap gap-[7px] max-[680px]:my-2 max-[680px]:mt-[13px] max-[680px]:flex-nowrap max-[680px]:overflow-x-auto max-[680px]:pb-[3px]" role="group" aria-label="فیلتر روزها">

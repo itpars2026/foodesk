@@ -6,6 +6,7 @@ import { getSession } from '../../api/endpoints'
 import { buttonClass } from '../../components/ui/buttonStyles'
 import ErrorMessage from '../../components/ui/ErrorMessage'
 import { getApiMessage } from '../../utils/errors'
+import { formatNumber } from '../../utils/format'
 
 type NotificationType = 'info' | 'reminder' | 'warning'
 
@@ -128,7 +129,7 @@ export default function NotificationManagement() {
       )
 
       setSuccess(
-        `اعلان «${result.title}» با موفقیت برای ${result.recipient_count.toLocaleString('fa-IR')} کاربر ثبت شد.`,
+        `اعلان «${result.title}» با موفقیت برای ${formatNumber(result.recipient_count)} کاربر ثبت شد.`,
       )
 
       setTitle('')

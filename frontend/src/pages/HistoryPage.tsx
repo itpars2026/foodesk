@@ -8,9 +8,8 @@ import ErrorMessage from '../components/ui/ErrorMessage'
 import LoadingRows from '../components/ui/LoadingRows'
 import { formatDate } from '../utils/date'
 import { getApiMessage } from '../utils/errors'
-import { formatMoney } from '../utils/format'
+import { formatMoney, formatNumber } from '../utils/format'
 
-const numberFormatter = new Intl.NumberFormat('fa-IR')
 const dateTimeFormatter = new Intl.DateTimeFormat('fa-IR', {
   dateStyle: 'medium',
   timeStyle: 'short',
@@ -112,7 +111,7 @@ function ReservationVersion({
 
         <div className="flex flex-wrap justify-between gap-2">
           <span className="text-muted">
-            غذای اصلی × {numberFormatter.format(item.food_quantity)}
+            غذای اصلی × {formatNumber(item.food_quantity)}
           </span>
           <strong className="text-ink">
             {formatMoney(item.food_price * item.food_quantity)}
@@ -131,7 +130,7 @@ function ReservationVersion({
                 key={`side-${index}`}
               >
                 <span className="text-muted">
-                  {side.name} × {numberFormatter.format(side.quantity)}
+                  {side.name} × {formatNumber(side.quantity)}
                   <span className="ms-2 opacity-75">
                     ({formatMoney(side.unitPrice)} هر واحد)
                   </span>
@@ -153,7 +152,7 @@ function ReservationVersion({
                 key={`drink-${index}`}
               >
                 <span className="text-muted">
-                  {drink.name} × {numberFormatter.format(drink.quantity)}
+                  {drink.name} × {formatNumber(drink.quantity)}
                   <span className="ms-2 opacity-75">
                     ({formatMoney(drink.unitPrice)} هر واحد)
                   </span>
@@ -297,7 +296,7 @@ function MonthlyMetric({
     <div className="min-w-0">
       <div className="text-xs text-muted">{label}</div>
       <strong className="mt-1 block whitespace-nowrap text-sm font-semibold text-ink">
-        {count ? numberFormatter.format(value) : formatMoney(value)}
+        {count ? formatNumber(value) : formatMoney(value)}
       </strong>
     </div>
   )
@@ -430,7 +429,7 @@ export default function HistoryPage() {
                       {month.label}
                     </h2>
                     <p className="mt-1 mb-0 text-xs text-muted">
-                      {numberFormatter.format(
+                      {formatNumber(
                         month.reservations.filter(
                           (reservation) =>
                             reservation.status === 'res' &&
@@ -526,7 +525,7 @@ export default function HistoryPage() {
                     <details className="mt-3 rounded-xl border border-line px-3 py-3">
                       <summary className="cursor-pointer text-sm font-semibold text-accent">
                         جزئیات و سوابق (
-                        {numberFormatter.format(reservation.history.length)} نسخه)
+                        {formatNumber(reservation.history.length)} نسخه)
                       </summary>
 
                       <ol className="m-0 mt-3 list-none p-0">
