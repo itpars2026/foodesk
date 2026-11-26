@@ -283,7 +283,7 @@ describe('ReservationDialog building selection', () => {
     ).toHaveTextContent('2')
 
     await user.click(
-      screen.getByRole('button', { name: 'ذخیرهٔ ویرایش' }),
+      screen.getByRole('button', { name: 'ذخیره' }),
     )
 
     await waitFor(() => {
@@ -507,7 +507,7 @@ describe('ReservationDialog building selection', () => {
     ).toHaveTextContent('2')
 
     await user.click(
-      screen.getByRole('button', { name: 'ذخیرهٔ ویرایش' }),
+      screen.getByRole('button', { name: 'ذخیره' }),
     )
 
     await waitFor(() => {

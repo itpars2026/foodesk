@@ -333,7 +333,7 @@ describe('WeekPage multi-selection integration', () => {
 
     await user.click(
       screen.getByRole('button', {
-        name: 'ذخیرهٔ ویرایش',
+        name: 'ذخیره',
       }),
     )
 
