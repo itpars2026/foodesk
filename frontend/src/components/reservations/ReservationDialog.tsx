@@ -644,7 +644,18 @@ export default function ReservationDialog({
       : menu.reservation
         ? 'ذخیره'
         : 'ثبت رزرو'}</button>
-          {menu.reservation?.status === 'res' && <button className={buttonClass('dangerQuiet', 'mx-auto block')} disabled={saving || canceling} onClick={() => void cancelReservation()} type="button">{canceling ? 'در حال لغو…' : 'لغو غذای این روز'}</button>}
+          {menu.reservation?.status === 'res' && (
+            <div className="flex justify-center">
+              <button
+                className={buttonClass('dangerQuiet')}
+                disabled={saving || canceling}
+                onClick={() => void cancelReservation()}
+                type="button"
+              >
+                {canceling ? 'در حال لغو…' : 'لغو غذای این روز'}
+              </button>
+            </div>
+          )}
           <p className="mt-px mb-0 text-center text-[11px] text-muted">مهلت رزرو و ویرایش تا ساعت ۱۰ صبح روز قبل است.</p>
   </div>
 </form>}
