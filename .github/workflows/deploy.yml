@@ -34,12 +34,6 @@ on:
       - '.github/workflows/scripts-ci.yml'
 
   workflow_dispatch:
-    inputs:
-      publish_staging:
-        description: 'Build and publish staging images to GHCR'
-        required: true
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -71,11 +65,8 @@ jobs:
       - scripts
 
     if: >-
-      (github.event_name == 'push' &&
-       github.ref == 'refs/heads/main') ||
-      (github.event_name == 'workflow_dispatch' &&
-       github.ref == 'refs/heads/feat/monthly-subsidy-cutoff' &&
-       inputs.publish_staging == true)
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main'
 
     permissions:
       contents: read
