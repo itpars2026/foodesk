@@ -106,6 +106,15 @@ except (TypeError, ValueError) as exc:
 
 if not 0 <= RESERVATION_CUTOFF_HOUR <= 23:
     raise ImproperlyConfigured('RESERVATION_CUTOFF_HOUR must be between 0 and 23.')
+_subsidy_cutoff_raw = os.getenv('MONTHLY_SUBSIDY_CUTOFF_DAY', '20')
+try:
+    MONTHLY_SUBSIDY_CUTOFF_DAY = int(_subsidy_cutoff_raw)
+except (TypeError, ValueError) as exc:
+    raise ImproperlyConfigured('MONTHLY_SUBSIDY_CUTOFF_DAY must be an integer between 1 and 29.') from exc
+
+if not 1 <= MONTHLY_SUBSIDY_CUTOFF_DAY <= 29:
+    raise ImproperlyConfigured('MONTHLY_SUBSIDY_CUTOFF_DAY must be between 1 and 29.')
+
 USE_I18N = True
 USE_TZ = True
 

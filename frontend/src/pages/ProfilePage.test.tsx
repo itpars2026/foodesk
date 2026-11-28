@@ -184,3 +184,32 @@ describe('Profile employee creation', () => {
     expect(screen.queryByRole('button', { name: 'افزودن کاربر' })).not.toBeInTheDocument()
   })
 })
+
+describe('Profile subsidy access', () => {
+  it.each([
+    { role: 'Employee', roles: ['Employee'], isSuperuser: false },
+    { role: 'Viewer', roles: ['Viewer'], isSuperuser: false },
+    { role: 'Custom group', roles: ['FoodOperator'], isSuperuser: false },
+    { role: 'Super Admin', roles: [], isSuperuser: true },
+  ])('shows subsidy settings to $role', async ({ roles, isSuperuser }) => {
+    mockProfile(roles, isSuperuser, [])
+    render(<ProfilePage />)
+
+    expect(
+      await screen.findByRole('button', { name: 'تنظیمات یارانه غذا' }),
+    ).toBeInTheDocument()
+  })
+
+  it('keeps employee creation restricted while subsidy is available', async () => {
+    mockProfile(['Employee'])
+    render(<ProfilePage />)
+
+    expect(
+      await screen.findByRole('button', { name: 'تنظیمات یارانه غذا' }),
+    ).toBeInTheDocument()
+
+    expect(
+      screen.queryByRole('button', { name: 'افزودن کاربر' }),
+    ).not.toBeInTheDocument()
+  })
+})

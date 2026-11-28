@@ -1,4 +1,4 @@
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from datetime import timedelta
 
@@ -16,11 +16,11 @@ class SubsidyDeadlineTests(TestCase):
             self.assertEqual(jdatetime.date.fromgregorian(date=last).month, month)
             self.assertNotEqual(jdatetime.date.fromgregorian(date=last + timedelta(days=1)).month, month)
 
-    def test_deadline_is_previous_working_day(self):
+    @override_settings(MONTHLY_SUBSIDY_CUTOFF_DAY=20)
+    def test_deadline_is_day_20_or_previous_working_day(self):
         year, month = 1405, 9
-        _, last = jalali_month_bounds(year, month)
         deadline = subsidy_deadline(year, month)
-        expected = last - timedelta(days=1)
+        expected = jdatetime.date(year, month, 20).togregorian()
         while expected.weekday() == 4:
             expected -= timedelta(days=1)
         self.assertEqual(deadline.date(), expected)

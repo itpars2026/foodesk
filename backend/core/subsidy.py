@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
@@ -22,8 +23,7 @@ def jalali_month_bounds(year: int, month: int):
 def subsidy_deadline(year: int, month: int, cutoff_hour: int = 10):
     if not 0 <= cutoff_hour <= 23:
         raise ValueError('Invalid cutoff hour')
-    _, month_end = jalali_month_bounds(year, month)
-    deadline_day = month_end - timedelta(days=1)
+    deadline_day = jdatetime.date(year, month, settings.MONTHLY_SUBSIDY_CUTOFF_DAY).togregorian()
 
     while not is_working_day(deadline_day):
         deadline_day -= timedelta(days=1)
