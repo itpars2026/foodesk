@@ -22,6 +22,10 @@ vi.mock('./pages/CatalogPage', () => ({
   default: () => <h1>صفحه مدیریت آزمایشی</h1>,
 }))
 
+vi.mock('./pages/GroupsPage', () => ({
+  default: () => <h1>صفحه گروه‌های آزمایشی</h1>,
+}))
+
 const employee: User = {
   id: 1,
   username: '1001',
@@ -31,6 +35,7 @@ const employee: User = {
   is_superuser: false,
   must_change_password: false,
   roles: [],
+  permissions: [],
 }
 
 function renderAt(path: string) {
@@ -644,4 +649,181 @@ describe('Authentication and routing', () => {
 
     expect(window.location.pathname).toBe('/history')
   })
+
+  it('allows Super Admin to open group management', async () => {
+    server.use(
+      http.get('*/api/v1/auth/session', () =>
+        HttpResponse.json({
+          ...employee,
+          is_superuser: true,
+        })
+      )
+    )
+
+    renderAt('/admin/groups')
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'صفحه گروه‌های آزمایشی',
+      })
+    ).toBeInTheDocument()
+
+    expect(window.location.pathname).toBe('/admin/groups')
+
+    expect(
+      screen.getAllByRole('button', {
+        name: 'مدیریت گروه‌ها',
+      }).length
+    ).toBeGreaterThan(0)
+  })
+
+  it('denies group management access to hrFood', async () => {
+    server.use(
+      http.get('*/api/v1/auth/session', () =>
+        HttpResponse.json({
+          ...employee,
+          roles: ['hrFood'],
+        })
+      )
+    )
+
+    renderAt('/admin/groups')
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'صفحه رزرو آزمایشی',
+      })
+    ).toBeInTheDocument()
+
+    expect(window.location.pathname).toBe('/reservations')
+
+    expect(
+      screen.queryByRole('heading', {
+        name: 'صفحه گروه‌های آزمایشی',
+      })
+    ).not.toBeInTheDocument()
+
+    expect(
+      screen.queryByRole('button', {
+        name: 'مدیریت گروه‌ها',
+      })
+    ).not.toBeInTheDocument()
+  })
+
+  it('denies group management to custom roles with management permissions', async () => {
+    server.use(
+      http.get('*/api/v1/auth/session', () =>
+        HttpResponse.json({
+          ...employee,
+          roles: ['FoodOperator'],
+          permissions: [
+            'food.add_food',
+            'food.change_food',
+            'core.change_customuser',
+          ],
+        })
+      )
+    )
+
+    renderAt('/admin/groups')
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'صفحه رزرو آزمایشی',
+      })
+    ).toBeInTheDocument()
+
+    expect(window.location.pathname).toBe('/reservations')
+
+    expect(
+      screen.queryByRole('button', {
+        name: 'مدیریت گروه‌ها',
+      })
+    ).not.toBeInTheDocument()
+  })
+
+
+  it('preserves group management after login refresh for Super Admin', async () => {
+    server.use(
+      http.post('*/api/v1/auth/login', () =>
+        HttpResponse.json({
+          ...employee,
+          is_superuser: true,
+        })
+      )
+    )
+
+    const firstRender = renderAt('/admin/groups')
+
+    await screen.findByRole('heading', {
+      name: 'ورود به حساب',
+    })
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/login')
+      expect(window.location.search).toBe('')
+      expect(sessionStorage.getItem('foodesk:login-redirect'))
+        .toBe('/admin/groups')
+    })
+
+    firstRender.unmount()
+
+    renderAt('/login')
+
+    await screen.findByRole('heading', {
+      name: 'ورود به حساب',
+    })
+
+    await fillLogin()
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'صفحه گروه‌های آزمایشی',
+      })
+    ).toBeInTheDocument()
+
+    expect(window.location.pathname).toBe('/admin/groups')
+    expect(window.location.search).toBe('')
+    expect(sessionStorage.getItem('foodesk:login-redirect'))
+      .toBeNull()
+  })
+
+  it('redirects a non-admin after login instead of opening groups', async () => {
+    server.use(
+      http.post('*/api/v1/auth/login', () =>
+        HttpResponse.json({
+          ...employee,
+          roles: ['hrFood'],
+          is_superuser: false,
+        })
+      )
+    )
+
+    renderAt('/admin/groups')
+
+    await screen.findByRole('heading', {
+      name: 'ورود به حساب',
+    })
+
+    await fillLogin()
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'صفحه رزرو آزمایشی',
+      })
+    ).toBeInTheDocument()
+
+    expect(window.location.pathname).toBe('/reservations')
+    expect(window.location.search).toBe('')
+
+    expect(
+      screen.queryByRole('heading', {
+        name: 'صفحه گروه‌های آزمایشی',
+      })
+    ).not.toBeInTheDocument()
+
+    expect(sessionStorage.getItem('foodesk:login-redirect'))
+      .toBeNull()
+  })
+
 })

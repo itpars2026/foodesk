@@ -29,6 +29,7 @@ function renderInventory() {
       sides={[]}
       drinks={[]}
       onChanged={onChanged}
+      canEdit={{ foods: true, sides: true, drinks: true }}
     />,
   )
 
@@ -193,4 +194,48 @@ describe('CatalogInventory food image editing', () => {
     ).toBeInTheDocument()
   })
 
+})
+
+describe('CatalogInventory permissions', () => {
+  it('hides food editing when change_food is not granted', async () => {
+    render(
+      <CatalogInventory
+        foods={[food]}
+        sides={[]}
+        drinks={[]}
+        canEdit={{ foods: false, sides: false, drinks: false }}
+        onChanged={vi.fn(async () => {})}
+      />,
+    )
+
+    const user = userEvent.setup()
+    await user.click(screen.getByText('غذاها (1)'))
+
+    expect(
+      screen.queryByRole('button', { name: 'ویرایش' }),
+    ).not.toBeInTheDocument()
+
+    expect(
+      screen.getByText('غذای آزمایشی'),
+    ).toBeInTheDocument()
+  })
+
+  it('allows food editing when change_food is granted', async () => {
+    render(
+      <CatalogInventory
+        foods={[food]}
+        sides={[]}
+        drinks={[]}
+        canEdit={{ foods: true, sides: false, drinks: false }}
+        onChanged={vi.fn(async () => {})}
+      />,
+    )
+
+    const user = userEvent.setup()
+    await user.click(screen.getByText('غذاها (1)'))
+
+    expect(
+      screen.getByRole('button', { name: 'ویرایش' }),
+    ).toBeInTheDocument()
+  })
 })

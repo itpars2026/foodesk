@@ -1,9 +1,11 @@
+from django.contrib.auth.models import Group, Permission
 from django.test import Client, TestCase
 from django.urls import reverse
 
 import json
 
 from core.models import Building, Department
+from core.serializers import SessionUserSerializer
 from core.services import create_employee
 
 
@@ -20,6 +22,70 @@ class AuthenticationAPITests(TestCase):
             building_number='07',
             department_number='003',
         )
+
+    def test_session_and_login_include_effective_permissions(self):
+        employee = self.create_test_employee()
+
+        group = Group.objects.create(name='SessionReportOperator')
+        group.permissions.add(
+            Permission.objects.get(
+                content_type__app_label='food',
+                codename='view_management_reports',
+            )
+        )
+        employee.groups.add(group)
+
+        self.client.force_login(employee)
+
+        session_response = self.client.get(reverse('auth-session'))
+
+        self.assertEqual(session_response.status_code, 200)
+        session_data = session_response.json()
+
+        self.assertIn('permissions', session_data)
+        self.assertIn('SessionReportOperator', session_data['roles'])
+        self.assertIn(
+            'food.view_management_reports',
+            session_data['permissions'],
+        )
+        self.assertEqual(
+            session_data['permissions'],
+            sorted(set(session_data['permissions'])),
+        )
+
+        self.client.logout()
+
+        login_response = self.client.post(
+            reverse('auth-login'),
+            data=json.dumps({
+                'username': '001234',
+                'password': '0012345678',
+            }),
+            content_type='application/json',
+        )
+
+        self.assertEqual(login_response.status_code, 200)
+        login_data = login_response.json()
+
+        self.assertIn(
+            'food.view_management_reports',
+            login_data['permissions'],
+        )
+        self.assertIn('SessionReportOperator', login_data['roles'])
+        self.assertEqual(
+            login_data['permissions'],
+            session_data['permissions'],
+        )
+
+    def test_inactive_user_serializer_has_no_permissions(self):
+        employee = self.create_test_employee()
+        employee.is_active = False
+        employee.save(update_fields=['is_active'])
+
+        data = SessionUserSerializer(employee).data
+
+        self.assertEqual(data['permissions'], [])
+        self.assertFalse(data['is_active'])
 
     def test_login_requires_csrf_and_returns_password_change_state(self):
         self.create_test_employee()

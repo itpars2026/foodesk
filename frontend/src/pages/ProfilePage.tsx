@@ -1,3 +1,4 @@
+import { canCreateEmployee as hasEmployeeCreatePermission } from '../app/permissions'
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ChevronDown, KeyRound, Save, UserRound, UserRoundPlus } from 'lucide-react'
@@ -100,7 +101,7 @@ export default function ProfilePage() {
     void api<User>('/auth/session')
       .then((session) => {
         if (active) {
-          setCanCreateEmployee(Boolean(session.is_superuser || session.roles?.includes('hrFood')))
+          setCanCreateEmployee(hasEmployeeCreatePermission(session))
         }
       })
       .catch(() => {

@@ -16,6 +16,7 @@ type Props = {
   sides: CatalogItem[]
   drinks: CatalogItem[]
   onChanged: (message: string) => Promise<void>
+  canEdit: Record<Kind, boolean>
 }
 
 export default function CatalogInventory({
@@ -23,6 +24,7 @@ export default function CatalogInventory({
   sides,
   drinks,
   onChanged,
+  canEdit,
 }: Props) {
   const [query, setQuery] = useState('')
   const [editing, setEditing] = useState<string | null>(null)
@@ -52,6 +54,7 @@ export default function CatalogInventory({
   ]
 
   function startEdit(kind: Kind, item: CatalogItem) {
+    if (!canEdit[kind]) return
     setEditing(`${kind}:${item.id}`)
     setImageFile(null)
     setImagePreview(null)
@@ -66,6 +69,8 @@ export default function CatalogInventory({
   }
 
   async function save(kind: Kind, id: number) {
+    if (!canEdit[kind]) return
+
     if (!name.trim() || price.trim() === '') {
       setError('نام و قیمت الزامی هستند.')
       return
@@ -208,6 +213,7 @@ export default function CatalogInventory({
                             </p>
                           </div>
 
+                          {canEdit[kind] && (
                           <button
                             type="button"
                             className="min-h-10 rounded-lg border border-line px-4 text-sm"
@@ -223,9 +229,10 @@ export default function CatalogInventory({
                           >
                             {isEditing ? 'انصراف' : 'ویرایش'}
                           </button>
+                          )}
                         </div>
 
-                        {isEditing && (
+                        {isEditing && canEdit[kind] && (
                           <form
                             className="mt-4 grid gap-3 border-t border-line pt-4 sm:grid-cols-2"
                             onSubmit={(event) => {

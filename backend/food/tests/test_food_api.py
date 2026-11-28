@@ -1,4 +1,4 @@
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import Group, Permission
 from django.test import TestCase
 from django.urls import reverse
 
@@ -111,3 +111,50 @@ class FoodAPITests(TestCase):
 
         assert read_response.status_code == 200
         assert write_response.status_code == 403
+
+
+    def test_custom_group_can_create_but_not_edit_food(self):
+        group = Group.objects.create(name='FoodManager')
+
+        add_permission = Permission.objects.get(
+            content_type__app_label='food',
+            codename='add_food',
+        )
+        group.permissions.add(add_permission)
+
+        user = CustomUser.objects.create_user(
+            username='food-manager-test',
+            password='TestPassword2026!',
+            must_change_password=False,
+        )
+        user.groups.add(group)
+
+        self.client.force_login(user)
+
+        create_response = self.client.post(
+            reverse('food-list'),
+            {
+                'name': 'Custom Group Food',
+                'price': 100_000,
+                'container_price': 10_000,
+            },
+        )
+
+        self.assertEqual(
+            create_response.status_code,
+            201,
+            create_response.content,
+        )
+
+        food = Food.objects.get(name='Custom Group Food')
+
+        update_response = self.client.patch(
+            reverse('food-detail', kwargs={'pk': food.pk}),
+            {'name': 'Unauthorized Change'},
+            content_type='application/json',
+        )
+
+        self.assertEqual(update_response.status_code, 403)
+
+        food.refresh_from_db()
+        self.assertEqual(food.name, 'Custom Group Food')

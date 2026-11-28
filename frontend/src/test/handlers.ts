@@ -1,6 +1,14 @@
 import { http, HttpResponse } from 'msw'
 
 export const handlers = [
+  http.get('*/api/v1/reservations/wallet-summary', () =>
+    HttpResponse.json({
+      month: '1405-08',
+      spent_toman: 0,
+      reservation_count: 0,
+    })
+  ),
+
   http.get('*/api/v1/notifications/unread-count', () =>
     HttpResponse.json({ unread_count: 0 })
   ),

@@ -1,4 +1,4 @@
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import Group, Permission
 from django.test import TestCase
 from django.urls import reverse
 
@@ -807,6 +807,120 @@ class ManagementReportTests(TestCase):
             reverse('daily-report-list'),
             {'from': '2099-01-01', 'to': '2099-01-07'},
         )
+        self.assertEqual(response.status_code, 403)
+
+    def test_custom_group_can_read_management_reports(self):
+        group = Group.objects.create(name='ReportOperator')
+
+        permission = Permission.objects.get(
+            content_type__app_label='food',
+            codename='view_management_reports',
+        )
+        group.permissions.add(permission)
+
+        operator = CustomUser.objects.create_user(
+            username='report-operator',
+            password='Safe-Test-Password-2026',
+            must_change_password=False,
+        )
+        operator.groups.add(group)
+
+        self.client.force_login(operator)
+
+        params = {
+            'from': '2099-01-01',
+            'to': '2099-01-07',
+        }
+
+        for endpoint in (
+            'daily-report-list',
+            'daily-report-buildings',
+        ):
+            with self.subTest(endpoint=endpoint):
+                response = self.client.get(
+                    reverse(endpoint),
+                    params,
+                )
+                self.assertEqual(
+                    response.status_code,
+                    200,
+                    response.content,
+                )
+
+        # Report permission must not grant catalog modification.
+        response = self.client.post(
+            reverse('food-list'),
+            {
+                'name': 'Unauthorized food',
+                'price': 100000,
+                'container_price': 10000,
+            },
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_excel_export_requires_explicit_report_permission(self):
+        from io import BytesIO
+        from openpyxl import load_workbook
+
+        report_group = Group.objects.create(name='ExcelReportOperator')
+        report_group.permissions.add(
+            Permission.objects.get(
+                content_type__app_label='food',
+                codename='view_management_reports',
+            )
+        )
+
+        operator = CustomUser.objects.create_user(
+            username='excel-report-operator',
+            password='Safe-Test-Password-2026',
+            must_change_password=False,
+        )
+        operator.groups.add(report_group)
+
+        export_url = reverse('daily-report-export')
+        params = {'from': '2099-01-01', 'to': '2099-01-07'}
+
+        self.client.force_login(operator)
+        response = self.client.get(export_url, params)
+
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertTrue(response.content.startswith(b'PK'))
+
+        workbook = load_workbook(BytesIO(response.content))
+        self.assertEqual(
+            workbook.sheetnames,
+            ['جزئیات رزرو', 'سفارش', 'تحویل ساختمان‌ها'],
+        )
+        workbook.close()
+
+        employee = CustomUser.objects.create_user(
+            username='excel-employee',
+            password='Safe-Test-Password-2026',
+            must_change_password=False,
+        )
+
+        self.client.force_login(employee)
+        response = self.client.get(export_url, params)
+        self.assertEqual(response.status_code, 403)
+
+        menu_group = Group.objects.create(name='MenuOnlyReader')
+        menu_group.permissions.add(
+            Permission.objects.get(
+                content_type__app_label='food',
+                codename='view_menu',
+            )
+        )
+
+        menu_reader = CustomUser.objects.create_user(
+            username='excel-menu-reader',
+            password='Safe-Test-Password-2026',
+            must_change_password=False,
+        )
+        menu_reader.groups.add(menu_group)
+
+        self.client.force_login(menu_reader)
+        response = self.client.get(export_url, params)
         self.assertEqual(response.status_code, 403)
 
     def test_hr_food_can_read_daily_report(self):

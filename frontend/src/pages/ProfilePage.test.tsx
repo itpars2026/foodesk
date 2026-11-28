@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { describe, expect, it } from 'vitest'
@@ -19,7 +19,13 @@ const options = {
   departments: [{ id: 2, number: '02' }, { id: 4, number: '04' }],
 }
 
-function mockProfile(roles: string[] = [], is_superuser = false) {
+function mockProfile(
+  roles: string[] = [],
+  is_superuser = false,
+  permissions: string[] = roles.includes('hrFood')
+    ? ['core.add_customuser']
+    : [],
+) {
   server.use(
     http.get('*/api/v1/auth/profile', () => HttpResponse.json(profile)),
     http.get('*/api/v1/auth/profile-options', () => HttpResponse.json(options)),
@@ -33,6 +39,7 @@ function mockProfile(roles: string[] = [], is_superuser = false) {
         is_superuser,
         must_change_password: false,
         roles,
+        permissions,
       }),
     ),
   )
@@ -65,6 +72,58 @@ describe('Profile employee creation', () => {
     await user.click(trigger)
     expect(trigger).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByRole('button', { name: 'ایجاد کاربر' })).toBeDisabled()
+  })
+
+  it('shows employee creation to a custom group with add permission', async () => {
+    mockProfile(['EmployeeOperator'], false, ['core.add_customuser'])
+    render(<ProfilePage />)
+
+    expect(
+      await screen.findByRole('button', { name: 'افزودن کاربر' }),
+    ).toBeInTheDocument()
+  })
+
+  it('hides employee creation after a session without add permission resolves', async () => {
+    mockProfile(['EmployeeOperator'], false, ['core.view_customuser'])
+
+    let resolveSession!: (response: ReturnType<typeof HttpResponse.json>) => void
+    let sessionRequested = false
+
+    const sessionResponse = new Promise<ReturnType<typeof HttpResponse.json>>((resolve) => {
+      resolveSession = resolve
+    })
+
+    server.use(
+      http.get('*/api/v1/auth/session', () => {
+        sessionRequested = true
+        return sessionResponse
+      }),
+    )
+
+    render(<ProfilePage />)
+
+    await waitFor(() => {
+      expect(sessionRequested).toBe(true)
+    })
+
+    await act(async () => {
+      resolveSession(HttpResponse.json({
+        id: 1,
+        username: '1001',
+        first_name: 'کاربر',
+        last_name: 'آزمایشی',
+        is_active: true,
+        is_superuser: false,
+        must_change_password: false,
+        roles: ['EmployeeOperator'],
+        permissions: ['core.view_customuser'],
+      }))
+      await sessionResponse
+    })
+
+    expect(
+      screen.queryByRole('button', { name: 'افزودن کاربر' }),
+    ).not.toBeInTheDocument()
   })
 
   it('shows the create-employee accordion to superusers', async () => {

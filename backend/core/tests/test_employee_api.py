@@ -1,4 +1,4 @@
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import Group, Permission
 from django.test import TestCase
 from django.urls import reverse
 
@@ -146,3 +146,47 @@ class EmployeeAPITests(TestCase):
         self.assertEqual(response.status_code, 400, response.content)
         self.assertIn('national_id', response.json())
         self.assertFalse(CustomUser.objects.filter(username='001234').exists())
+
+
+    def test_custom_group_can_create_but_not_edit_employee(self):
+        group = Group.objects.create(name='PersonnelOperator')
+
+        permission = Permission.objects.get(
+            content_type__app_label='core',
+            codename='add_customuser',
+        )
+        group.permissions.add(permission)
+
+        operator = CustomUser.objects.create_user(
+            username='personnel-operator',
+            password='TestPassword2026!',
+            must_change_password=False,
+        )
+        operator.groups.add(group)
+
+        self.client.force_login(operator)
+
+        response = self.client.post(
+            reverse('employee-list'),
+            {
+                'personnel_number': '001234',
+                'national_id': '0012345678',
+                'building_number': '07',
+                'department_number': '003',
+            },
+        )
+
+        self.assertEqual(response.status_code, 201, response.content)
+
+        employee = CustomUser.objects.get(username='001234')
+
+        update_response = self.client.patch(
+            reverse('employee-detail', kwargs={'pk': employee.pk}),
+            '{"is_active": false}',
+            content_type='application/json',
+        )
+
+        self.assertEqual(update_response.status_code, 403)
+
+        employee.refresh_from_db()
+        self.assertTrue(employee.is_active)

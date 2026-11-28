@@ -5,7 +5,8 @@ import { RefreshCw } from 'lucide-react'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { FormEvent } from 'react'
 import { api } from '../api/client'
-import type { CatalogItem, MenuCategory } from '../api/types'
+import type { CatalogItem, MenuCategory, User } from '../api/types'
+import { hasPermission } from '../app/permissions'
 import { buttonClass, iconButtonClass } from '../components/ui/buttonStyles'
 import { addDays, dateToIso } from '../utils/date'
 import { getApiMessage } from '../utils/errors'
@@ -15,7 +16,7 @@ import LoadingRows from '../components/ui/LoadingRows'
 
 type CatalogKind = 'foods' | 'sides' | 'drinks'
 
-export default function CatalogPage() {
+export default function CatalogPage({ user }: { user: User }) {
   const [foods, setFoods] = useState<(CatalogItem & { container_price: number; total_price: number })[]>([])
   const [sides, setSides] = useState<CatalogItem[]>([])
   const [drinks, setDrinks] = useState<CatalogItem[]>([])
@@ -33,6 +34,18 @@ export default function CatalogPage() {
   const [categories, setCategories] = useState<MenuCategory[]>([])
   const [menuCategory, setMenuCategory] = useState('')
   const [kind, setKind] = useState<CatalogKind>('sides')
+
+  const canAddFood = hasPermission(user, 'food.add_food')
+  const canAddMenu = hasPermission(user, 'food.add_menu')
+  const canAddSide = hasPermission(user, 'food.add_side')
+  const canAddDrink = hasPermission(user, 'food.add_drink')
+  const canAddAny = canAddFood || canAddMenu || canAddSide || canAddDrink
+
+  const selectedKind: CatalogKind =
+    (kind === 'sides' && canAddSide) ||
+    (kind === 'drinks' && canAddDrink)
+      ? kind
+      : canAddSide ? 'sides' : 'drinks'
   const [itemName, setItemName] = useState('')
   const [itemPrice, setItemPrice] = useState('')
   const [notice, setNotice] = useState('')
@@ -115,6 +128,7 @@ export default function CatalogPage() {
 
   async function createFood(event: FormEvent) {
     event.preventDefault()
+    if (!hasPermission(user, 'food.add_food')) return
     setError('')
     setNotice('')
     try {
@@ -150,9 +164,13 @@ export default function CatalogPage() {
 
   async function createCatalogItem(event: FormEvent) {
     event.preventDefault()
+    const requiredPermission = selectedKind === 'sides'
+      ? 'food.add_side'
+      : 'food.add_drink'
+    if (!hasPermission(user, requiredPermission)) return
     setError('')
     setNotice('')
-    const endpoint = kind === 'sides' ? '/sides' : '/drinks'
+    const endpoint = selectedKind === 'sides' ? '/sides' : '/drinks'
     try {
       let body: BodyInit = JSON.stringify({
         name: itemName.trim(),
@@ -178,13 +196,14 @@ export default function CatalogPage() {
         itemImageInputRef.current.value = ''
       }
 
-      setNotice(kind === 'sides' ? 'پیش‌غذا اضافه شد.' : 'نوشیدنی اضافه شد.')
+      setNotice(selectedKind === 'sides' ? 'پیش‌غذا اضافه شد.' : 'نوشیدنی اضافه شد.')
       await loadCatalog()
     } catch (saveError) { setError(getApiMessage(saveError)) }
   }
 
   async function createMenu(event: FormEvent) {
     event.preventDefault()
+    if (!hasPermission(user, 'food.add_menu')) return
     setError('')
     setNotice('')
     try {
@@ -207,11 +226,13 @@ export default function CatalogPage() {
     {notice && <p className="mb-[14px] rounded-[9px] border border-[#c9e5d7] dark:border-line bg-[#f0faf4] dark:bg-raised p-[14px] leading-[1.8] text-[#176441] dark:text-ink" role="status">{notice}</p>}
     {error && <ErrorMessage message={error} />}
     {loading ? <LoadingRows /> : <div className="grid gap-4">
+      {canAddAny && (
       <details className="open:z-30 relative group overflow-visible rounded-xl border border-line bg-surface">
         <summary className="cursor-pointer bg-accent-soft dark:bg-active px-5 py-5 text-base font-bold text-accent hover:bg-active">
           مدیریت منو
         </summary>
         <div className="grid grid-cols-1 gap-3 bg-raised p-4">
+{canAddFood && (
       <details className="open:z-30 relative min-w-0 overflow-visible rounded-xl border border-line bg-surface">
   <summary className="cursor-pointer border-b border-line bg-raised px-5 py-4 text-sm font-semibold text-ink hover:bg-active">افزودن غذا</summary>
 <div className="p-3 pt-0"><section className="min-w-0 rounded-xl border border-line bg-surface p-[18px]"><h2 className="mt-0 mb-[15px] text-base">افزودن غذا</h2><form className="grid grid-cols-1 gap-3 sm:grid-cols-2" onSubmit={(event) => void createFood(event)}><label className="flex flex-col gap-2 mb-[17px] text-sm font-semibold text-ink !m-0 col-span-full">نام غذا<input className="min-h-[46px] w-full rounded-[9px] border border-line bg-surface px-[13px] py-[10px] text-ink" onChange={(event) => setFoodName(event.target.value)} required value={foodName} /></label><label className="flex flex-col gap-2 mb-[17px] text-sm font-semibold text-ink !m-0">قیمت غذا (تومان)<input className="min-h-[46px] w-full rounded-[9px] border border-line bg-surface px-[13px] py-[10px] text-ink" min={0} onChange={(event) => setFoodPrice(event.target.value)} required type="number" value={foodPrice} /></label><label className="flex flex-col gap-2 mb-[17px] text-sm font-semibold text-ink !m-0">قیمت ظرف (تومان)<input className="min-h-[46px] w-full rounded-[9px] border border-line bg-surface px-[13px] py-[10px] text-ink" min={0} onChange={(event) => setContainerPrice(event.target.value)} required type="number" value={containerPrice} /></label>
@@ -269,19 +290,26 @@ export default function CatalogPage() {
   افزودن غذا
 </button></form></section></div>
 </details>
+)}
+{canAddMenu && (
       <details className="open:z-30 relative min-w-0 overflow-visible rounded-xl border border-line bg-surface">
   <summary className="cursor-pointer border-b border-line bg-raised px-5 py-4 text-sm font-semibold text-ink hover:bg-active">ثبت منوی روز</summary>
 <div className="p-3 pt-0"><section className="min-w-0 rounded-xl border border-line bg-surface p-[18px]"><h2 className="mt-0 mb-[15px] text-base">ثبت منوی روز</h2><form className="grid gap-3" onSubmit={(event) => void createMenu(event)}><fieldset className="flex min-w-0 flex-col gap-2 !m-0 border-0 p-0"><legend className="mb-2 text-sm font-semibold text-ink">تاریخ</legend><JalaliDatePicker onChange={setMenuDate} required value={menuDate} /></fieldset><fieldset className="flex min-w-0 flex-col gap-2 !m-0 border-0 p-0"><legend className="mb-2 text-sm font-semibold text-ink">دسته منو</legend><select aria-label="دسته منو" required value={menuCategory} onChange={(event) => setMenuCategory(event.target.value)} className="min-h-[44px] rounded-lg border border-line bg-surface px-3 text-ink">{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></fieldset><fieldset className="flex min-w-0 flex-col gap-2 !m-0 border-0 p-0"><legend className="mb-2 text-sm font-semibold text-ink">غذای روز</legend><FoodPicker foods={foods} value={selectedFood} onChange={setSelectedFood} /></fieldset><button className={buttonClass('primary', '')} disabled={!foods.length || !menuCategory} type="submit">ثبت منو</button></form></section></div>
 </details>
+)}
+{(canAddSide || canAddDrink) && (
       <details className="open:z-30 relative min-w-0 overflow-visible rounded-xl border border-line bg-surface">
   <summary className="cursor-pointer border-b border-line bg-raised px-5 py-4 text-sm font-semibold text-ink hover:bg-active">افزودن گزینهٔ جانبی</summary>
-<div className="p-3 pt-0"><section className="min-w-0 rounded-xl border border-line bg-surface p-[18px]"><h2 className="mt-0 mb-[15px] text-base">افزودن گزینهٔ جانبی</h2><form className="grid grid-cols-1 gap-3 sm:grid-cols-2" onSubmit={(event) => void createCatalogItem(event)}><label className="flex flex-col gap-2 mb-[17px] text-sm font-semibold text-ink !m-0">نوع گزینه<select className="min-h-[46px] w-full rounded-[9px] border border-line bg-surface px-[13px] py-[10px] text-ink" onChange={(event) => setKind(event.target.value as CatalogKind)} value={kind}><option value="sides">پیش‌غذا</option><option value="drinks">نوشیدنی</option></select></label><label className="flex flex-col gap-2 mb-[17px] text-sm font-semibold text-ink !m-0">نام<input className="min-h-[46px] w-full rounded-[9px] border border-line bg-surface px-[13px] py-[10px] text-ink" onChange={(event) => setItemName(event.target.value)} required value={itemName} /></label><label className="flex flex-col gap-2 mb-[17px] text-sm font-semibold text-ink !m-0 col-span-full">قیمت (تومان)<input className="min-h-[46px] w-full rounded-[9px] border border-line bg-surface px-[13px] py-[10px] text-ink" min={0} onChange={(event) => setItemPrice(event.target.value)} required type="number" value={itemPrice} /></label>
+<div className="p-3 pt-0"><section className="min-w-0 rounded-xl border border-line bg-surface p-[18px]"><h2 className="mt-0 mb-[15px] text-base">افزودن گزینهٔ جانبی</h2><form className="grid grid-cols-1 gap-3 sm:grid-cols-2" onSubmit={(event) => void createCatalogItem(event)}><label className="flex flex-col gap-2 mb-[17px] text-sm font-semibold text-ink !m-0">نوع گزینه<select className="min-h-[46px] w-full rounded-[9px] border border-line bg-surface px-[13px] py-[10px] text-ink" onChange={(event) => setKind(event.target.value as CatalogKind)} value={selectedKind}>
+      {canAddSide && <option value="sides">پیش‌غذا</option>}
+      {canAddDrink && <option value="drinks">نوشیدنی</option>}
+    </select></label><label className="flex flex-col gap-2 mb-[17px] text-sm font-semibold text-ink !m-0">نام<input className="min-h-[46px] w-full rounded-[9px] border border-line bg-surface px-[13px] py-[10px] text-ink" onChange={(event) => setItemName(event.target.value)} required value={itemName} /></label><label className="flex flex-col gap-2 mb-[17px] text-sm font-semibold text-ink !m-0 col-span-full">قیمت (تومان)<input className="min-h-[46px] w-full rounded-[9px] border border-line bg-surface px-[13px] py-[10px] text-ink" min={0} onChange={(event) => setItemPrice(event.target.value)} required type="number" value={itemPrice} /></label>
 <div className="col-span-full grid min-w-0 gap-3 rounded-xl border border-line bg-raised p-3">
   <label
     htmlFor="new-catalog-item-image"
     className="text-sm font-semibold text-ink"
   >
-    تصویر {kind === 'sides' ? 'پیش‌غذا' : 'نوشیدنی'} (اختیاری)
+    تصویر {selectedKind === 'sides' ? 'پیش‌غذا' : 'نوشیدنی'} (اختیاری)
   </label>
 
   <input
@@ -329,8 +357,10 @@ export default function CatalogPage() {
   افزودن گزینه
 </button></form></section></div>
 </details>
+)}
       </div>
       </details>
+)}
       <details className="open:z-30 relative group overflow-visible rounded-xl border border-line bg-surface">
         <summary className="cursor-pointer bg-accent-soft dark:bg-active px-5 py-5 text-base font-bold text-accent hover:bg-active">
           فهرست کاتالوگ
@@ -341,6 +371,11 @@ export default function CatalogPage() {
         foods={foods}
         sides={sides}
         drinks={drinks}
+        canEdit={{
+          foods: hasPermission(user, 'food.change_food'),
+          sides: hasPermission(user, 'food.change_side'),
+          drinks: hasPermission(user, 'food.change_drink'),
+        }}
         onChanged={async (message) => {
           await loadCatalog(true)
           setEditNotice(message)
@@ -349,7 +384,9 @@ export default function CatalogPage() {
       />
         </div>
       </details>
-      <NotificationManagement />
+      {(user.is_superuser || user.roles.includes('hrFood')) && (
+        <NotificationManagement />
+      )}
     </div>}
   </section>
 }

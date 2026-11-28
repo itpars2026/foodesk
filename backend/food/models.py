@@ -97,6 +97,9 @@ class Menu(TimeStampedModel):
     )
 
     class Meta:
+        permissions = [
+            ('view_management_reports', 'Can view organizational management reports'),
+        ]
         constraints: ClassVar[list] = [
             models.UniqueConstraint(fields=('date', 'category'), name='unique_menu_per_date_category')
         ]

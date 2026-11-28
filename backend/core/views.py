@@ -1,10 +1,12 @@
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import mixins, serializers, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from django.contrib.auth import login as auth_login, logout as auth_logout, update_session_auth_hash
+from django.contrib.auth.models import Group, Permission
 from django.db.models import Q
 from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
@@ -16,12 +18,14 @@ from typing import ClassVar
 
 from core.models import Building, CustomUser, Department, NotificationRecipient, Profile, SiteSettings
 from core.paginations import NotificationPagination
-from core.permissions import HasChangedInitialPassword, IsHRFoodOrSuperAdmin
+from core.roles import ASSIGNABLE_PERMISSIONS, ROLE_NAMES
+from core.permissions import HasChangedInitialPassword, IsHRFoodOrSuperAdmin, IsSuperAdmin
 from core.serializers import (
     ChangePasswordSerializer,
     EmployeeCreateSerializer,
     EmployeeSerializer,
     EmployeeUpdateSerializer,
+    GroupSerializer,
     LoginSerializer,
     MonthlySubsidyUpdateSerializer,
     NotificationSerializer,
@@ -376,3 +380,152 @@ class NotificationViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
                 'unread_count': 0,
             }
         )
+
+
+class GroupViewSet(viewsets.ModelViewSet):
+    """Super-admin-only management of Django permission groups."""
+
+    queryset = Group.objects.prefetch_related('permissions').order_by('name')
+    serializer_class = GroupSerializer
+
+    permission_classes = [
+        IsAuthenticated,
+        HasChangedInitialPassword,
+        IsSuperAdmin,
+    ]
+
+    http_method_names = [
+        'get',
+        'post',
+        'patch',
+        'delete',
+        'head',
+        'options',
+    ]
+
+    def partial_update(self, request, *args, **kwargs):
+        group = self.get_object()
+
+        if group.name in ROLE_NAMES:
+            raise PermissionDenied('System groups cannot be modified through this API.')
+
+        return super().partial_update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        group = self.get_object()
+
+        if group.name in ROLE_NAMES:
+            raise PermissionDenied('System groups cannot be deleted.')
+
+        return super().destroy(request, *args, **kwargs)
+
+
+
+    @action(
+        detail=True,
+        methods=['get', 'post'],
+        url_path='members',
+        url_name='members',
+    )
+    def members(self, request, pk=None):
+        group = self.get_object()
+
+        if request.method == 'GET':
+            users = (
+                CustomUser.objects.filter(groups=group)
+                .order_by('username', 'pk')
+                .values('id', 'username', 'first_name', 'last_name', 'is_active')
+            )
+            return Response(list(users))
+
+        if group.name in ROLE_NAMES:
+            raise PermissionDenied(
+                'System group membership cannot be changed through this API.'
+            )
+
+        field = serializers.IntegerField(min_value=1)
+        user_id = field.run_validation(request.data.get('user_id'))
+
+        user = get_object_or_404(CustomUser, pk=user_id)
+
+        group.user_set.add(user)
+
+        return Response({
+            'group_id': group.pk,
+            'user_id': user.pk,
+            'added': True,
+        })
+
+    @action(
+        detail=True,
+        methods=['delete'],
+        url_path=r'members/(?P<user_id>[0-9]+)',
+        url_name='member-detail',
+    )
+    def remove_member(self, request, pk=None, user_id=None):
+        group = self.get_object()
+
+        if group.name in ROLE_NAMES:
+            raise PermissionDenied(
+                'System group membership cannot be changed through this API.'
+            )
+
+        user = get_object_or_404(CustomUser, pk=user_id)
+
+        group.user_set.remove(user)
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class PermissionViewSet(viewsets.ViewSet):
+    """List permissions that may be assigned to custom groups."""
+
+    permission_classes = [
+        IsAuthenticated,
+        HasChangedInitialPassword,
+        IsSuperAdmin,
+    ]
+
+    http_method_names = ['get', 'head', 'options']
+
+    @extend_schema(
+        responses=inline_serializer(
+            name='AssignablePermission',
+            fields={
+                'id': serializers.IntegerField(),
+                'app_label': serializers.CharField(),
+                'codename': serializers.CharField(),
+                'name': serializers.CharField(),
+            },
+            many=True,
+        ),
+    )
+    def list(self, request):
+        permissions = (
+            Permission.objects.filter(
+                Q(
+                    content_type__app_label='core',
+                    codename__in=ASSIGNABLE_PERMISSIONS['core'],
+                )
+                | Q(
+                    content_type__app_label='food',
+                    codename__in=ASSIGNABLE_PERMISSIONS['food'],
+                )
+            )
+            .select_related('content_type')
+            .order_by(
+                'content_type__app_label',
+                'content_type__model',
+                'codename',
+            )
+        )
+
+        return Response([
+            {
+                'id': permission.pk,
+                'app_label': permission.content_type.app_label,
+                'codename': permission.codename,
+                'name': permission.name,
+            }
+            for permission in permissions
+        ])

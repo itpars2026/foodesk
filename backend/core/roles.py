@@ -26,6 +26,7 @@ HR_FOOD_FOOD_PERMISSIONS = (
     'add_menu',
     'change_menu',
     'view_menu',
+    'view_management_reports',
 )
 
 VIEWER_FOOD_PERMISSIONS = (
@@ -33,4 +34,11 @@ VIEWER_FOOD_PERMISSIONS = (
     'view_side',
     'view_drink',
     'view_menu',
+    'view_management_reports',
 )
+# Permissions available to custom groups through Foodesk API.
+# Internal Django administration permissions are deliberately excluded.
+ASSIGNABLE_PERMISSIONS = {
+    'core': frozenset(HR_FOOD_CORE_PERMISSIONS),
+    'food': frozenset(HR_FOOD_FOOD_PERMISSIONS),
+}

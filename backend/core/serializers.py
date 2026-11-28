@@ -1,9 +1,12 @@
+from django.db.models import Q
 from rest_framework import serializers
 
 from django.contrib.auth import authenticate
+from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import ValidationError as DjangoValidationError
 
 from core.models import Building, CustomUser, Department, NotificationRecipient, Profile
+from core.roles import ASSIGNABLE_PERMISSIONS, ROLE_NAMES
 from core.services import create_employee, update_employee, update_profile_preferences
 from core.validators import validate_new_password
 
@@ -17,6 +20,7 @@ def convert_validation_error(exc: DjangoValidationError) -> serializers.Validati
 
 class SessionUserSerializer(serializers.ModelSerializer):
     roles = serializers.SerializerMethodField()
+    permissions = serializers.SerializerMethodField()
 
     class Meta:
         model = CustomUser
@@ -29,11 +33,18 @@ class SessionUserSerializer(serializers.ModelSerializer):
             'is_superuser',
             'must_change_password',
             'roles',
+            'permissions',
         )
         read_only_fields = fields
 
     def get_roles(self, user: CustomUser) -> list[str]:
         return list(user.groups.order_by('name').values_list('name', flat=True))
+
+
+    def get_permissions(self, user: CustomUser) -> list[str]:
+        if not user.is_active:
+            return []
+        return sorted(user.get_all_permissions())
 
 
 class LoginSerializer(serializers.Serializer):
@@ -215,3 +226,59 @@ class MonthlySubsidyUpdateSerializer(serializers.Serializer):
             )
         except DjangoValidationError as exc:
             raise serializers.ValidationError({'detail': exc.messages}) from exc
+
+
+class GroupSerializer(serializers.ModelSerializer):
+    permissions = serializers.PrimaryKeyRelatedField(
+        queryset=Permission.objects.filter(
+            Q(
+                content_type__app_label='core',
+                codename__in=ASSIGNABLE_PERMISSIONS['core'],
+            )
+            | Q(
+                content_type__app_label='food',
+                codename__in=ASSIGNABLE_PERMISSIONS['food'],
+            )
+        ),
+        many=True,
+        required=False,
+    )
+    is_system = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Group
+        fields = (
+            'id',
+            'name',
+            'permissions',
+            'is_system',
+        )
+        read_only_fields = ('id', 'is_system')
+
+    def get_is_system(self, obj) -> bool:
+        return obj.name in ROLE_NAMES
+
+    def validate_name(self, value):
+        name = value.strip()
+
+        if not name:
+            raise serializers.ValidationError('Group name cannot be empty.')
+
+        if name.casefold() in {role.casefold() for role in ROLE_NAMES}:
+
+            if self.instance is None or self.instance.name != name:
+                raise serializers.ValidationError('System group names are reserved.')
+
+        if self.instance and self.instance.name in ROLE_NAMES:
+            if name != self.instance.name:
+                raise serializers.ValidationError('System groups cannot be renamed.')
+
+        existing = Group.objects.filter(name__iexact=name)
+
+        if self.instance:
+            existing = existing.exclude(pk=self.instance.pk)
+
+        if existing.exists():
+            raise serializers.ValidationError('A group with this name already exists.')
+
+        return name

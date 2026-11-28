@@ -8,7 +8,7 @@ import {
 } from 'react-router'
 
 import type { Page } from './app/navigation'
-import { canSeeReport, isManager } from './app/permissions'
+import { canSeeReport, canAccessCatalog } from './app/permissions'
 import { ApiError, SESSION_EXPIRED_EVENT } from './api/client'
 import { getSession, login, logout } from './api/endpoints'
 import type { User } from './api/types'
@@ -25,6 +25,7 @@ const ReportPage = lazy(() => import('./pages/ReportPage'))
 
 const CatalogPage = lazy(() => import('./pages/CatalogPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
+const GroupsPage = lazy(() => import('./pages/GroupsPage'))
 
 function normalizePath(path: string): string {
   return path.replace(/\/+$/, '') || '/'
@@ -34,6 +35,7 @@ function pageFromPath(path: string): Page {
   const normalized = normalizePath(path)
   if (normalized === '/history') return 'history'
   if (normalized === '/profile') return 'profile'
+  if (normalized === '/admin/groups') return 'groups'
   if (normalized === '/reports') return 'report'
   if (normalized === '/catalog' || normalized === '/menus') return 'catalog'
   return 'week'
@@ -46,17 +48,22 @@ function routeFor(page: Page): string {
     report: '/reports',
     catalog: '/catalog',
     profile: '/profile',
+    groups: '/admin/groups',
   }[page]
 }
 
 function permittedPath(path: string, user: User): string {
   const page = pageFromPath(path)
 
+  if (page === 'groups' && !user.is_superuser) {
+    return '/reservations'
+  }
+
   if (page === 'report' && !canSeeReport(user)) {
     return '/reservations'
   }
 
-  if (page === 'catalog' && !isManager(user)) {
+  if (page === 'catalog' && !canAccessCatalog(user)) {
     return '/reservations'
   }
 
@@ -72,6 +79,7 @@ const ALLOWED_DESTINATIONS = new Set([
   '/catalog',
   '/menus',
   '/profile',
+  '/admin/groups',
 ])
 
 function validDestination(value: unknown): string | null {
@@ -325,6 +333,13 @@ export default function App() {
   }
 
   if (
+    pathname === '/admin/groups' &&
+    !user.is_superuser
+  ) {
+    return <Navigate to="/reservations" replace />
+  }
+
+  if (
     pathname === '/reports' &&
     !canSeeReport(user)
   ) {
@@ -333,7 +348,7 @@ export default function App() {
 
   if (
     (pathname === '/catalog' || pathname === '/menus') &&
-    !isManager(user)
+    !canAccessCatalog(user)
   ) {
     return <Navigate to="/reservations" replace />
   }
@@ -368,13 +383,14 @@ export default function App() {
         <Route path="/reservations" element={<WeekPage />} />
         <Route path="/history" element={<HistoryPage />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/admin/groups" element={<GroupsPage />} />
         <Route
           path="/reports"
           element={<ReportPage />}
         />
         <Route
           path="/catalog"
-          element={<CatalogPage />}
+          element={<CatalogPage user={user} />}
         />
         <Route
           path="/menus"

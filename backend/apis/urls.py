@@ -1,6 +1,6 @@
 from rest_framework.routers import DefaultRouter
 
-from core.views import AuthViewSet, ConfigViewSet, EmployeeViewSet, HealthViewSet, NotificationViewSet
+from core.views import AuthViewSet, ConfigViewSet, EmployeeViewSet, GroupViewSet, HealthViewSet, NotificationViewSet, PermissionViewSet
 from food.views import (
     DailyReportViewSet,
     DrinkViewSet,
@@ -16,6 +16,8 @@ router.register('health', HealthViewSet, basename='health')
 router.register('config', ConfigViewSet, basename='config')
 router.register('auth', AuthViewSet, basename='auth')
 router.register('employees', EmployeeViewSet, basename='employee')
+router.register('groups', GroupViewSet, basename='group')
+router.register('permissions', PermissionViewSet, basename='permission')
 router.register('notifications', NotificationViewSet, basename='notification')
 router.register('foods', FoodViewSet, basename='food')
 router.register('sides', SideViewSet, basename='side')

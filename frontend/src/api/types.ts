@@ -7,6 +7,7 @@ export type User = {
   is_superuser: boolean
   must_change_password: boolean
   roles: string[]
+  permissions: string[]
 }
 
 export type ImageData = {
