@@ -2,7 +2,7 @@
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from datetime import timedelta
@@ -36,21 +36,38 @@ class SubsidyPreferenceApiTests(TestCase):
     def setUp(self):
         self.url = reverse('auth-subsidy-preferences')
 
-    def test_employee_cannot_access_subsidy(self):
+    def test_employee_can_read_and_update_own_subsidy(self):
         self.client.force_login(self.other)
-        self.assertEqual(self.client.get(self.url).status_code, 403)
-        self.assertEqual(
-            self.client.patch(
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+
+        year, month = current_and_next_jalali_month()[1]
+        with patch('core.subsidy.is_working_day', return_value=True):
+            response = self.client.patch(
                 self.url,
                 {
-                    'jalali_year': 1405,
-                    'jalali_month': 9,
+                    'jalali_year': year,
+                    'jalali_month': month,
                     'receive_subsidy': False,
                 },
                 content_type='application/json',
-            ).status_code,
-            403,
-        )
+            )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertFalse(effective_subsidy(self.other_profile, year, month))
+        self.assertTrue(effective_subsidy(self.profile, year, month))
+
+    def test_viewer_and_custom_group_can_read_subsidy(self):
+        for group_name in ('Viewer', 'FoodOperator'):
+            with self.subTest(group=group_name):
+                group, _ = Group.objects.get_or_create(name=group_name)
+                self.other.groups.clear()
+                self.other.groups.add(group)
+                self.client.force_login(self.other)
+
+                response = self.client.get(self.url)
+                self.assertEqual(response.status_code, 200)
 
     def test_superadmin_can_access_subsidy(self):
         self.client.force_login(self.admin)
@@ -125,6 +142,94 @@ class SubsidyPreferenceApiTests(TestCase):
             with self.assertRaises(ValidationError):
                 set_monthly_subsidy(self.profile, year, month, True, now=deadline)
         self.assertFalse(effective_subsidy(self.profile, year, month))
+
+    @override_settings(MONTHLY_SUBSIDY_CUTOFF_DAY=20)
+    def test_deadline_is_day_20_of_same_jalali_month(self):
+        import jdatetime
+
+        with patch('core.subsidy.is_working_day', return_value=True):
+            deadline = subsidy_deadline(1405, 9)
+
+        expected = jdatetime.date(1405, 9, 20).togregorian()
+        self.assertEqual(deadline.date(), expected)
+        self.assertEqual((deadline.hour, deadline.minute), (10, 0))
+
+    @override_settings(MONTHLY_SUBSIDY_CUTOFF_DAY=15)
+    def test_deadline_respects_configured_day(self):
+        import jdatetime
+
+        with patch('core.subsidy.is_working_day', return_value=True):
+            deadline = subsidy_deadline(1405, 9)
+
+        self.assertEqual(
+            deadline.date(),
+            jdatetime.date(1405, 9, 15).togregorian(),
+        )
+
+    @override_settings(MONTHLY_SUBSIDY_CUTOFF_DAY=20)
+    def test_nonworking_cutoff_moves_to_previous_working_day(self):
+        import jdatetime
+
+        cutoff = jdatetime.date(1405, 9, 20).togregorian()
+        previous_day = cutoff - timedelta(days=1)
+
+        with patch(
+            'core.subsidy.is_working_day',
+            side_effect=lambda day: day != cutoff,
+        ):
+            deadline = subsidy_deadline(1405, 9)
+
+        self.assertEqual(deadline.date(), previous_day)
+
+    @override_settings(MONTHLY_SUBSIDY_CUTOFF_DAY=20)
+    def test_friday_cutoff_moves_to_thursday(self):
+        import jdatetime
+
+        # Find a Jalali month whose 20th day is Friday.
+        matching = None
+        for year in (1405, 1406, 1407):
+            for month in range(1, 13):
+                day = jdatetime.date(year, month, 20).togregorian()
+                if day.weekday() == 4:
+                    matching = (year, month, day)
+                    break
+            if matching:
+                break
+
+        self.assertIsNotNone(matching)
+        year, month, friday = matching
+
+        deadline = subsidy_deadline(year, month)
+
+        self.assertEqual(
+            deadline.date(),
+            friday - timedelta(days=1),
+        )
+
+    @override_settings(MONTHLY_SUBSIDY_CUTOFF_DAY=20)
+    def test_official_holiday_moves_cutoff_back(self):
+        import jdatetime
+
+        from food.models import Holiday
+
+        # Select a month whose 20th is a working weekday.
+        year = 1405
+        month = next(m for m in range(1, 13) if jdatetime.date(year, m, 20).togregorian().weekday() != 4)
+
+        cutoff = jdatetime.date(year, month, 20).togregorian()
+
+        Holiday.objects.create(
+            date=cutoff,
+            description='Test holiday',
+        )
+
+        deadline = subsidy_deadline(year, month)
+        expected = cutoff - timedelta(days=1)
+
+        while expected.weekday() == 4:
+            expected -= timedelta(days=1)
+
+        self.assertEqual(deadline.date(), expected)
 
     def test_user_must_change_initial_password(self):
         self.user.must_change_password = True

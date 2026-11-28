@@ -207,7 +207,6 @@ class AuthViewSet(viewsets.GenericViewSet):
         permission_classes=[
             IsAuthenticated,
             HasChangedInitialPassword,
-            IsHRFoodOrSuperAdmin,
         ],
     )
     def subsidy_preferences(self, request):
