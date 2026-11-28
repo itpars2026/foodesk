@@ -57,10 +57,12 @@ class AuthenticationAPITests(TestCase):
 
         login_response = self.client.post(
             reverse('auth-login'),
-            data=json.dumps({
-                'username': '001234',
-                'password': '0012345678',
-            }),
+            data=json.dumps(
+                {
+                    'username': '001234',
+                    'password': '0012345678',
+                }
+            ),
             content_type='application/json',
         )
 

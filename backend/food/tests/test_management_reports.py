@@ -861,6 +861,7 @@ class ManagementReportTests(TestCase):
 
     def test_excel_export_requires_explicit_report_permission(self):
         from io import BytesIO
+
         from openpyxl import load_workbook
 
         report_group = Group.objects.create(name='ExcelReportOperator')

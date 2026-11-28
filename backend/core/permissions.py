@@ -1,5 +1,7 @@
 from rest_framework.permissions import BasePermission
 
+from typing import ClassVar
+
 from core.roles import EMPLOYEE_ROLE, HR_FOOD_ROLE, VIEWER_ROLE
 
 
@@ -14,7 +16,7 @@ class HasChangedInitialPassword(BasePermission):
 class IsHRFoodOrSuperAdmin(BasePermission):
     message = 'You do not have permission to manage employees.'
 
-    EMPLOYEE_ACTION_PERMISSIONS = {
+    EMPLOYEE_ACTION_PERMISSIONS: ClassVar[dict[str, str]] = {
         'list': 'core.view_customuser',
         'retrieve': 'core.view_customuser',
         'create': 'core.add_customuser',
@@ -33,9 +35,7 @@ class IsHRFoodOrSuperAdmin(BasePermission):
 
         # Employee API: authorize each action by its Django permission.
         if getattr(view, 'basename', None) == 'employee':
-            required = self.EMPLOYEE_ACTION_PERMISSIONS.get(
-                getattr(view, 'action', None)
-            )
+            required = self.EMPLOYEE_ACTION_PERMISSIONS.get(getattr(view, 'action', None))
 
             return bool(required and user.has_perm(required))
 
@@ -67,10 +67,7 @@ class IsHRFoodViewerOrSuperAdmin(BasePermission):
         if user.groups.filter(name=HR_FOOD_ROLE).exists():
             return True
 
-        return bool(
-            request.method in ('GET', 'HEAD', 'OPTIONS')
-            and user.groups.filter(name=VIEWER_ROLE).exists()
-        )
+        return bool(request.method in ('GET', 'HEAD', 'OPTIONS') and user.groups.filter(name=VIEWER_ROLE).exists())
 
 
 class IsCatalogReaderOrManager(BasePermission):
@@ -115,9 +112,7 @@ class IsCatalogReaderOrManager(BasePermission):
 
         # Preserve existing employee/viewer catalog read access.
         if request.method in ('GET', 'HEAD', 'OPTIONS'):
-            return user.groups.filter(
-                name__in=(EMPLOYEE_ROLE, VIEWER_ROLE)
-            ).exists()
+            return user.groups.filter(name__in=(EMPLOYEE_ROLE, VIEWER_ROLE)).exists()
 
         return False
 

@@ -112,7 +112,6 @@ class FoodAPITests(TestCase):
         assert read_response.status_code == 200
         assert write_response.status_code == 403
 
-
     def test_custom_group_can_create_but_not_edit_food(self):
         group = Group.objects.create(name='FoodManager')
 

@@ -18,8 +18,8 @@ from typing import ClassVar
 
 from core.models import Building, CustomUser, Department, NotificationRecipient, Profile, SiteSettings
 from core.paginations import NotificationPagination
-from core.roles import ASSIGNABLE_PERMISSIONS, ROLE_NAMES
 from core.permissions import HasChangedInitialPassword, IsHRFoodOrSuperAdmin, IsSuperAdmin
+from core.roles import ASSIGNABLE_PERMISSIONS, ROLE_NAMES
 from core.serializers import (
     ChangePasswordSerializer,
     EmployeeCreateSerializer,
@@ -388,13 +388,13 @@ class GroupViewSet(viewsets.ModelViewSet):
     queryset = Group.objects.prefetch_related('permissions').order_by('name')
     serializer_class = GroupSerializer
 
-    permission_classes = [
+    permission_classes: ClassVar[list] = [
         IsAuthenticated,
         HasChangedInitialPassword,
         IsSuperAdmin,
     ]
 
-    http_method_names = [
+    http_method_names: ClassVar[list] = [
         'get',
         'post',
         'patch',
@@ -419,8 +419,6 @@ class GroupViewSet(viewsets.ModelViewSet):
 
         return super().destroy(request, *args, **kwargs)
 
-
-
     @action(
         detail=True,
         methods=['get', 'post'],
@@ -439,9 +437,7 @@ class GroupViewSet(viewsets.ModelViewSet):
             return Response(list(users))
 
         if group.name in ROLE_NAMES:
-            raise PermissionDenied(
-                'System group membership cannot be changed through this API.'
-            )
+            raise PermissionDenied('System group membership cannot be changed through this API.')
 
         field = serializers.IntegerField(min_value=1)
         user_id = field.run_validation(request.data.get('user_id'))
@@ -450,11 +446,13 @@ class GroupViewSet(viewsets.ModelViewSet):
 
         group.user_set.add(user)
 
-        return Response({
-            'group_id': group.pk,
-            'user_id': user.pk,
-            'added': True,
-        })
+        return Response(
+            {
+                'group_id': group.pk,
+                'user_id': user.pk,
+                'added': True,
+            }
+        )
 
     @action(
         detail=True,
@@ -466,9 +464,7 @@ class GroupViewSet(viewsets.ModelViewSet):
         group = self.get_object()
 
         if group.name in ROLE_NAMES:
-            raise PermissionDenied(
-                'System group membership cannot be changed through this API.'
-            )
+            raise PermissionDenied('System group membership cannot be changed through this API.')
 
         user = get_object_or_404(CustomUser, pk=user_id)
 
@@ -480,13 +476,13 @@ class GroupViewSet(viewsets.ModelViewSet):
 class PermissionViewSet(viewsets.ViewSet):
     """List permissions that may be assigned to custom groups."""
 
-    permission_classes = [
+    permission_classes: ClassVar[list] = [
         IsAuthenticated,
         HasChangedInitialPassword,
         IsSuperAdmin,
     ]
 
-    http_method_names = ['get', 'head', 'options']
+    http_method_names: ClassVar[list] = ['get', 'head', 'options']
 
     @extend_schema(
         responses=inline_serializer(
@@ -520,12 +516,14 @@ class PermissionViewSet(viewsets.ViewSet):
             )
         )
 
-        return Response([
-            {
-                'id': permission.pk,
-                'app_label': permission.content_type.app_label,
-                'codename': permission.codename,
-                'name': permission.name,
-            }
-            for permission in permissions
-        ])
+        return Response(
+            [
+                {
+                    'id': permission.pk,
+                    'app_label': permission.content_type.app_label,
+                    'codename': permission.codename,
+                    'name': permission.name,
+                }
+                for permission in permissions
+            ]
+        )

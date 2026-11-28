@@ -97,7 +97,7 @@ class Menu(TimeStampedModel):
     )
 
     class Meta:
-        permissions = [
+        permissions: ClassVar[list] = [
             ('view_management_reports', 'Can view organizational management reports'),
         ]
         constraints: ClassVar[list] = [

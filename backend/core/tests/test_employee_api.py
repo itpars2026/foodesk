@@ -147,7 +147,6 @@ class EmployeeAPITests(TestCase):
         self.assertIn('national_id', response.json())
         self.assertFalse(CustomUser.objects.filter(username='001234').exists())
 
-
     def test_custom_group_can_create_but_not_edit_employee(self):
         group = Group.objects.create(name='PersonnelOperator')
 

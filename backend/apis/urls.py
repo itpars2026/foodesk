@@ -1,6 +1,14 @@
 from rest_framework.routers import DefaultRouter
 
-from core.views import AuthViewSet, ConfigViewSet, EmployeeViewSet, GroupViewSet, HealthViewSet, NotificationViewSet, PermissionViewSet
+from core.views import (
+    AuthViewSet,
+    ConfigViewSet,
+    EmployeeViewSet,
+    GroupViewSet,
+    HealthViewSet,
+    NotificationViewSet,
+    PermissionViewSet,
+)
 from food.views import (
     DailyReportViewSet,
     DrinkViewSet,

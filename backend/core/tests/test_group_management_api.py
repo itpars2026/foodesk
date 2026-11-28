@@ -1,8 +1,8 @@
-import json
-
 from django.contrib.auth.models import Group, Permission
 from django.test import TestCase
 from django.urls import reverse
+
+import json
 
 from core.models import CustomUser
 from core.roles import EMPLOYEE_ROLE, HR_FOOD_ROLE, VIEWER_ROLE
@@ -44,36 +44,36 @@ class GroupManagementAPITests(TestCase):
 
         response = self.client.post(
             reverse('group-list'),
-            data=json.dumps({
-                'name': 'FoodManager',
-                'permissions': [self.permission.id],
-            }),
+            data=json.dumps(
+                {
+                    'name': 'FoodManager',
+                    'permissions': [self.permission.id],
+                }
+            ),
             content_type='application/json',
         )
 
         self.assertEqual(response.status_code, 201, response.content)
 
         group = Group.objects.get(name='FoodManager')
-        self.assertTrue(
-            group.permissions.filter(pk=self.permission.pk).exists()
-        )
+        self.assertTrue(group.permissions.filter(pk=self.permission.pk).exists())
 
     def test_regular_user_cannot_create_group(self):
         self.client.force_login(self.regular_user)
 
         response = self.client.post(
             reverse('group-list'),
-            data=json.dumps({
-                'name': 'UnauthorizedGroup',
-                'permissions': [self.permission.id],
-            }),
+            data=json.dumps(
+                {
+                    'name': 'UnauthorizedGroup',
+                    'permissions': [self.permission.id],
+                }
+            ),
             content_type='application/json',
         )
 
         self.assertEqual(response.status_code, 403)
-        self.assertFalse(
-            Group.objects.filter(name='UnauthorizedGroup').exists()
-        )
+        self.assertFalse(Group.objects.filter(name='UnauthorizedGroup').exists())
 
     def test_system_groups_cannot_be_deleted(self):
         self.login_admin()
@@ -81,9 +81,7 @@ class GroupManagementAPITests(TestCase):
         for name in (HR_FOOD_ROLE, EMPLOYEE_ROLE, VIEWER_ROLE):
             group = Group.objects.get(name=name)
 
-            response = self.client.delete(
-                reverse('group-detail', kwargs={'pk': group.pk})
-            )
+            response = self.client.delete(reverse('group-detail', kwargs={'pk': group.pk}))
 
             self.assertEqual(response.status_code, 403)
             self.assertTrue(Group.objects.filter(pk=group.pk).exists())
@@ -92,9 +90,7 @@ class GroupManagementAPITests(TestCase):
         group = Group.objects.create(name='TemporaryFoodGroup')
         self.login_admin()
 
-        response = self.client.delete(
-            reverse('group-detail', kwargs={'pk': group.pk})
-        )
+        response = self.client.delete(reverse('group-detail', kwargs={'pk': group.pk}))
 
         self.assertEqual(response.status_code, 204)
         self.assertFalse(Group.objects.filter(pk=group.pk).exists())
@@ -104,9 +100,7 @@ class GroupManagementAPITests(TestCase):
         group.permissions.add(self.permission)
         self.regular_user.groups.add(group)
 
-        self.assertTrue(
-            self.regular_user.has_perm('food.add_food')
-        )
+        self.assertTrue(self.regular_user.has_perm('food.add_food'))
 
     def test_system_group_cannot_be_renamed(self):
         self.login_admin()
@@ -199,7 +193,6 @@ class GroupManagementAPITests(TestCase):
         response = self.client.get(reverse('group-list'))
         self.assertIn(response.status_code, (401, 403))
 
-
     def test_sensitive_permission_cannot_be_assigned(self):
         sensitive_permission = Permission.objects.get(
             content_type__app_label='auth',
@@ -210,18 +203,17 @@ class GroupManagementAPITests(TestCase):
 
         response = self.client.post(
             reverse('group-list'),
-            data=json.dumps({
-                'name': 'UnsafeGroup',
-                'permissions': [sensitive_permission.pk],
-            }),
+            data=json.dumps(
+                {
+                    'name': 'UnsafeGroup',
+                    'permissions': [sensitive_permission.pk],
+                }
+            ),
             content_type='application/json',
         )
 
         self.assertEqual(response.status_code, 400, response.content)
-        self.assertFalse(
-            Group.objects.filter(name='UnsafeGroup').exists()
-        )
-
+        self.assertFalse(Group.objects.filter(name='UnsafeGroup').exists())
 
     def test_superadmin_can_list_assignable_permissions(self):
         self.login_admin()
@@ -242,10 +234,7 @@ class GroupManagementAPITests(TestCase):
 
         self.assertNotIn(sensitive.pk, permission_ids)
 
-        item = next(
-            item for item in data
-            if item['id'] == self.permission.pk
-        )
+        item = next(item for item in data if item['id'] == self.permission.pk)
 
         self.assertEqual(item['app_label'], 'food')
         self.assertEqual(item['codename'], 'add_food')
@@ -258,7 +247,6 @@ class GroupManagementAPITests(TestCase):
 
         self.assertEqual(response.status_code, 403)
 
-
     def test_superadmin_can_add_group_member(self):
         group = Group.objects.create(name='FoodManager')
         self.login_admin()
@@ -270,9 +258,7 @@ class GroupManagementAPITests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200, response.content)
-        self.assertTrue(
-            group.user_set.filter(pk=self.regular_user.pk).exists()
-        )
+        self.assertTrue(group.user_set.filter(pk=self.regular_user.pk).exists())
 
     def test_adding_existing_member_is_idempotent(self):
         group = Group.objects.create(name='FoodManager')
@@ -307,9 +293,7 @@ class GroupManagementAPITests(TestCase):
         )
 
         self.assertEqual(response.status_code, 204, response.content)
-        self.assertFalse(
-            group.user_set.filter(pk=self.regular_user.pk).exists()
-        )
+        self.assertFalse(group.user_set.filter(pk=self.regular_user.pk).exists())
 
     def test_regular_user_cannot_manage_members(self):
         group = Group.objects.create(name='FoodManager')
@@ -334,6 +318,4 @@ class GroupManagementAPITests(TestCase):
         )
 
         self.assertEqual(response.status_code, 403)
-        self.assertFalse(
-            group.user_set.filter(pk=self.regular_user.pk).exists()
-        )
+        self.assertFalse(group.user_set.filter(pk=self.regular_user.pk).exists())

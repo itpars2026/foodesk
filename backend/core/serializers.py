@@ -1,9 +1,9 @@
-from django.db.models import Q
 from rest_framework import serializers
 
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db.models import Q
 
 from core.models import Building, CustomUser, Department, NotificationRecipient, Profile
 from core.roles import ASSIGNABLE_PERMISSIONS, ROLE_NAMES
@@ -39,7 +39,6 @@ class SessionUserSerializer(serializers.ModelSerializer):
 
     def get_roles(self, user: CustomUser) -> list[str]:
         return list(user.groups.order_by('name').values_list('name', flat=True))
-
 
     def get_permissions(self, user: CustomUser) -> list[str]:
         if not user.is_active:
@@ -264,14 +263,13 @@ class GroupSerializer(serializers.ModelSerializer):
         if not name:
             raise serializers.ValidationError('Group name cannot be empty.')
 
-        if name.casefold() in {role.casefold() for role in ROLE_NAMES}:
+        if name.casefold() in {role.casefold() for role in ROLE_NAMES} and (
+            self.instance is None or self.instance.name != name
+        ):
+            raise serializers.ValidationError('System group names are reserved.')
 
-            if self.instance is None or self.instance.name != name:
-                raise serializers.ValidationError('System group names are reserved.')
-
-        if self.instance and self.instance.name in ROLE_NAMES:
-            if name != self.instance.name:
-                raise serializers.ValidationError('System groups cannot be renamed.')
+        if self.instance and self.instance.name in ROLE_NAMES and name != self.instance.name:
+            raise serializers.ValidationError('System groups cannot be renamed.')
 
         existing = Group.objects.filter(name__iexact=name)
 
